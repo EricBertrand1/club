@@ -3,28 +3,34 @@
 
 {% block body %}
 <div class="container py-5">
-  <h1 class="mb-4">Bienvenue 👋</h1>
+
+  {# Titre centré avec fond #}
+  <div class="page-title-wrap">
+    <h1 class="page-title">Club</h1>
+  </div>
+
+  {# Liste des rubriques (toutes utilisent agenda.png pour l'instant) #}
+  {% set items = [
+    {label:'Adhésions',  href: path('app_adhesions') },   {label:'Calendrier', href: path('app_calendrier') },
+    {label:'Boutique',   href:'#' },                      {label:'Services',   href:'#' },
+    {label:'Agenda',     href:'#' },                      {label:'Projets',    href:'#' },
+    {label:'Castellum',  href:'#' },                      {label:'Formation',  href:'#' },
+    {label:'Chants',     href:'#' },                      {label:'Publicité',  href:'#' },
+    {label:'Coaching',   href:'#' },                      {label:'Bons plans', href:'#' }
+  ] %}
 
   <div class="row g-4">
-    <div class="col-12 col-md-4">
-      <a href="{{ path('app_adhesions') }}" class="text-decoration-none d-block">
-        <figure class="m-0">
-          <img src="{{ asset('images/menu/adhesions.jpg') }}" alt="Adhésions"
-               class="img-fluid rounded-4 shadow-sm menu-tile">
-          <figcaption class="h5 mt-2 text-center text-body">Adhésions</figcaption>
-        </figure>
-      </a>
-    </div>
-
-    <div class="col-12 col-md-4">
-      <a href="{{ path('app_calendrier') }}" class="text-decoration-none d-block">
-        <figure class="m-0">
-          <img src="{{ asset('images/menu/calendrier.jpg') }}" alt="Calendrier"
-               class="img-fluid rounded-4 shadow-sm menu-tile">
-          <figcaption class="h5 mt-2 text-center text-body">Calendrier</figcaption>
-        </figure>
-      </a>
-    </div>
+    {% for it in items %}
+      <div class="col-12 col-sm-6 col-md-4">
+        <a href="{{ it.href }}" class="text-decoration-none d-block">
+          <figure class="m-0">
+            <img src="{{ asset('images/menu/agenda.png') }}" alt="{{ it.label }}" class="img-fluid menu-tile">
+            <figcaption class="menu-caption">{{ it.label }}</figcaption>
+          </figure>
+        </a>
+      </div>
+    {% endfor %}
   </div>
+
 </div>
 {% endblock %}

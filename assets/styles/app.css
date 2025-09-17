@@ -1,3 +1,22 @@
-body {
-    background-color: skyblue;
+/* Titre centré avec fond coloré */
+.page-title-wrap { display:flex; justify-content:center; }
+.page-title {
+  background: #f0f6ff;   /* <-- change la couleur si tu veux */
+  color: #0d6efd;        /* bleu bootstrap */
+  padding: .75rem 1.25rem;
+  border-radius: 1rem;
+  margin-bottom: 1.5rem;
 }
+
+/* Tuiles d'images (ratio régulier + hover) */
+.menu-tile {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 1rem;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.menu-tile:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); }
+
+/* Légendes centrées sous l'image */
+.menu-caption { text-align: center; font-weight: 600; margin-top: .5rem; }
