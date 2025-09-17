@@ -1,35 +1,49 @@
 {% extends 'base.html.twig' %}
+
 {% block title %}Accueil{% endblock %}
 
 {% block body %}
 <div class="container py-5">
 
-  {# Titre centré avec fond #}
-  <div class="page-title-wrap">
-    <h1 class="page-title">Club</h1>
+  {# Titre centré avec fond + bouton à droite #}
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="page-title-wrap">
+      <h1 class="page-title">Club</h1>
+    </div>
+    <button class="btn btn-outline-primary d-flex align-items-center" id="login-button">
+      <img src="{{ asset('images/menu/account circle.png') }}" alt="Login" class="me-2" style="width: 20px; height: 20px;">
+      <span>Se connecter</span>
+    </button>
   </div>
 
-  {# Liste des rubriques (toutes utilisent agenda.png pour l'instant) #}
+  {# Liste des rubriques (avec image spécifique) #}
   {% set items = [
-    {label:'Adhésions',  href: path('app_adhesions') },   {label:'Calendrier', href: path('app_calendrier') },
-    {label:'Boutique',   href:'#' },                      {label:'Services',   href:'#' },
-    {label:'Agenda',     href:'#' },                      {label:'Projets',    href:'#' },
-    {label:'Castellum',  href:'#' },                      {label:'Formation',  href:'#' },
-    {label:'Chants',     href:'#' },                      {label:'Publicité',  href:'#' },
-    {label:'Coaching',   href:'#' },                      {label:'Bons plans', href:'#' }
+    {label:'Agenda',     img:'agenda.jpg',      href:'#'},
+    {label:'Annuaire',   img:'annuaire.jpg',    href:'#'},
+    {label:'Astuces',    img:'astuces.jpg',     href:'#'},
+    {label:'Boutique',   img:'boutique.jpg',    href:'#'},
+    {label:'Castellum',  img:'castellum.jpg',   href:'#', opaque: true},
+    {label:'Chants',     img:'chants.jpg',      href:'#'},
+    {label:'Coaching',   img:'coaching.jpg',    href:'#'},
+    {label:'Formation',  img:'formation.jpg',   href:'#'},
+    {label:'Projets',    img:'projets.jpg',     href:'#'},
+    {label:'Publicité',  img:'publicité.jpg',   href:'#'},
+    {label:'Services',   img:'services.jpg',    href:'#'}
   ] %}
 
-  <div class="row g-4">
-    {% for it in items %}
-      <div class="col-12 col-sm-6 col-md-4">
-        <a href="{{ it.href }}" class="text-decoration-none d-block">
-          <figure class="m-0">
-            <img src="{{ asset('images/menu/agenda.png') }}" alt="{{ it.label }}" class="img-fluid menu-tile">
-            <figcaption class="menu-caption">{{ it.label }}</figcaption>
-          </figure>
-        </a>
-      </div>
-    {% endfor %}
+  <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
+  {% for it in items %}
+    <div class="col">
+      <a href="{{ it.href }}" class="text-decoration-none d-block">
+        <figure class="m-0">
+          <div class="menu-box {% if it.opaque|default(false) %}opaque{% endif %}">
+            <img src="{{ asset('images/menu/' ~ it.img) }}" alt="{{ it.label }}">
+          </div>
+          <figcaption class="menu-caption">{{ it.label }}</figcaption>
+        </figure>
+      </a>
+    </div>
+  {% endfor %}
   </div>
 
 </div>

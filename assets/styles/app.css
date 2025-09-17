@@ -1,3 +1,11 @@
+/* Fond du container principal */
+.container {
+  background-color: #f0f6ff;  /* couleur bleu clair */
+  border-radius: 1rem;
+  padding: 20px;
+}
+
+
 /* Titre centré avec fond coloré */
 .page-title-wrap { display:flex; justify-content:center; }
 .page-title {
@@ -20,3 +28,38 @@
 
 /* Légendes centrées sous l'image */
 .menu-caption { text-align: center; font-weight: 600; margin-top: .5rem; }
+
+/* Boîte de vignette fixe (16:9) */
+.menu-box {
+  width: 100%;
+  aspect-ratio: 16 / 9;      /* taille homogène des vignettes */
+  background: #f8f9fa;
+  border-radius: 1rem;
+  overflow: hidden;
+  display: flex;              /* centre l'image si bandes */
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 .25rem .75rem rgba(0,0,0,.05);
+}
+
+/* Image qui s'adapte à la boîte sans être rognée */
+.menu-box > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;        /* pas de rognage */
+  display: block;
+}
+
+
+/* (Garde ta légende centrée) */
+.menu-caption { text-align: center; font-weight: 600; margin-top: .5rem; }
+
+/* Classe pour rendre une image opaque à 50% */
+.menu-box.opaque img {
+  opacity: 0.5 !important;  /* Ajout de !important pour forcer l'application */
+  transition: opacity 0.3s ease;
+}
+
+.menu-box.opaque img:hover {
+  opacity: 1 !important;    /* Opacité 100% au survol, ajout de !important */
+}
