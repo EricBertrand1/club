@@ -1,0 +1,30 @@
+{% extends 'base.html.twig' %}
+{% block title %}Accueil{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+  <h1 class="mb-4">Bienvenue 👋</h1>
+
+  <div class="row g-4">
+    <div class="col-12 col-md-4">
+      <a href="{{ path('app_adhesions') }}" class="text-decoration-none d-block">
+        <figure class="m-0">
+          <img src="{{ asset('images/menu/adhesions.jpg') }}" alt="Adhésions"
+               class="img-fluid rounded-4 shadow-sm menu-tile">
+          <figcaption class="h5 mt-2 text-center text-body">Adhésions</figcaption>
+        </figure>
+      </a>
+    </div>
+
+    <div class="col-12 col-md-4">
+      <a href="{{ path('app_calendrier') }}" class="text-decoration-none d-block">
+        <figure class="m-0">
+          <img src="{{ asset('images/menu/calendrier.jpg') }}" alt="Calendrier"
+               class="img-fluid rounded-4 shadow-sm menu-tile">
+          <figcaption class="h5 mt-2 text-center text-body">Calendrier</figcaption>
+        </figure>
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

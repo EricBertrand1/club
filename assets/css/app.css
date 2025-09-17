@@ -1,0 +1,12 @@
+/* Uniformiser le ratio des tuiles (ex: 16:9), rogner si besoin */
+.menu-tile {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;      /* recadre sans déformer */
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.menu-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+}
