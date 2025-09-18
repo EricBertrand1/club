@@ -1,13 +1,11 @@
+# config/routes.yaml
+
+# Route manuelle pour la page d'accueil
 app_home:
   path: /
   controller: App\Controller\HomeController::index
 
+# Charger toutes les routes des contrôleurs avec attributs
 controllers:
-  resource:
-    path: ../src/Controller/
-    namespace: App\Controller
-  type: attribute
-
-kernel:
-  resource: ../src/Kernel.php
+  resource: '../src/Controller/'
   type: attribute

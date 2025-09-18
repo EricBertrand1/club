@@ -1,20 +1,87 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Hello AgendaController!{% endblock %}
+{% block title %}Agenda{% endblock %}
 
 {% block body %}
-<style>
-    .example-wrapper { margin: 1em auto; max-width: 800px; width: 95%; font: 18px/1.5 sans-serif; }
-    .example-wrapper code { background: #F5F5F5; padding: 2px 6px; }
-</style>
+<h1>Agenda - Semaine du {{ days[0]|date('d/m/Y') }} au {{ days[6]|date('d/m/Y') }}</h1>
 
-<div class="example-wrapper">
-    <h1>Hello {{ controller_name }}! ✅</h1>
-
-    This friendly message is coming from:
-    <ul>
-        <li>Your controller at <code>C:/wamp64/www/club/src/Controller/AgendaController.php</code></li>
-        <li>Your template at <code>C:/wamp64/www/club/templates/agenda/index.html.twig</code></li>
-    </ul>
+<div class="mb-3">
+    <a class="btn btn-outline-primary" href="{{ path('agenda', {'weekOffset': weekOffset - 1}) }}">Semaine précédente</a>
+    <a class="btn btn-outline-primary" href="{{ path('agenda', {'weekOffset': weekOffset + 1}) }}">Semaine suivante</a>
 </div>
+
+{% set jours = {
+    'Monday': 'Lundi',
+    'Tuesday': 'Mardi',
+    'Wednesday': 'Mercredi',
+    'Thursday': 'Jeudi',
+    'Friday': 'Vendredi',
+    'Saturday': 'Samedi',
+    'Sunday': 'Dimanche'
+} %}
+
+<table class="table table-bordered text-center">
+    <thead>
+        <tr>
+            <th style="width:6%;">Heure</th>
+            {% for idx, day in days %}
+                {% set jourNom = jours[day|date('l')] %}
+                <th
+                    {% if isToday[idx] %}
+                        style="width:13%; color:red; font-weight:bold;"
+                        class="today"
+                    {% else %}
+                        style="width:13%;"
+                    {% endif %}
+                >
+                    {{ jourNom }}<br>{{ day|date("d/m") }}
+                </th>
+            {% endfor %}
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for hour in hours %}
+            <tr>
+                <td>{{ hour }}h</td>
+                {% for idx, day in days %}
+                    {% set dayKey = day|date('Y-m-d') %}
+                    {% set hourKey = '%02d'|format(hour) %}
+                    <td>
+                        {% if events[dayKey][hourKey] is defined %}
+                            {% for event in events[dayKey][hourKey] %}
+                                <div class="bg-primary text-white p-1 mb-1 rounded">
+                                    {{ event.texteCourt }}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+
+{% block styles %}
+<style>
+/* Colonnes de largeur fixe */
+table.table-bordered th,
+table.table-bordered td {
+    text-align: center;
+    vertical-align: middle;
+}
+
+table.table-bordered th:first-child,
+table.table-bordered td:first-child {
+    width: 6%;
+}
+
+table.table-bordered th:not(:first-child),
+table.table-bordered td:not(:first-child) {
+    width: 13%;
+}
+</style>
 {% endblock %}
