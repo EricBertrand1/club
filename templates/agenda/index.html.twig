@@ -23,36 +23,32 @@
 <table class="table table-bordered text-center">
     <thead>
         <tr>
-            <th style="width:6%;">Heure</th>
+            <th class="hour-col">Heure</th>
             {% for idx, day in days %}
                 {% set jourNom = jours[day|date('l')] %}
-                <th
-                    {% if isToday[idx] %}
-                        style="width:13%; color:red; font-weight:bold;"
-                        class="today"
-                    {% else %}
-                        style="width:13%;"
-                    {% endif %}
-                >
+                {% set classesJour = (isToday[idx] ? 'today ' : '') ~ (jourNom == 'Dimanche' ? 'dimanche' : '') %}
+                <th class="{{ classesJour }} day-col">
                     {{ jourNom }}<br>{{ day|date("d/m") }}
                 </th>
             {% endfor %}
         </tr>
     </thead>
-
     <tbody>
         {% for hour in hours %}
             <tr>
-                <td>{{ hour }}h</td>
+                <td class="hour-col">{{ hour }}h</td>
                 {% for idx, day in days %}
                     {% set dayKey = day|date('Y-m-d') %}
                     {% set hourKey = '%02d'|format(hour) %}
-                    <td>
+                    <td class="day-col">
                         {% if events[dayKey][hourKey] is defined %}
                             {% for event in events[dayKey][hourKey] %}
-                                <div class="bg-primary text-white p-1 mb-1 rounded">
-                                    {{ event.texteCourt }}
-                                </div>
+                                {% set eventClass = event.type|lower|replace({' ':'-','é':'e','è':'e','à':'a','ç':'c'}) %}
+                                <a href="{{ path('event_edit', {'id': event.id}) }}" class="text-decoration-none">
+                                    <div class="event-box {{ eventClass }}">
+                                        {{ event.texteCourt }}
+                                    </div>
+                                </a>
                             {% endfor %}
                         {% else %}
                             -
@@ -67,21 +63,40 @@
 
 {% block styles %}
 <style>
-/* Colonnes de largeur fixe */
+/* Colonnes */
+.hour-col { width: 6%; }
+.day-col { width: 13%; }
+
+/* Jour actuel en rouge */
+th.today { color: red; font-weight: bold; }
+
+/* Dimanche en fond gris clair */
+th.dimanche { background-color: #f0f0f0; }
+
+/* Colonnes et cellules centrées */
 table.table-bordered th,
-table.table-bordered td {
+table.table-bordered td { text-align: center; vertical-align: middle; }
+
+/* Style commun aux événements */
+.event-box {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 0.25rem;
+    border-radius: 0.25rem;
     text-align: center;
-    vertical-align: middle;
+    font-weight: 500;
+    text-decoration: none;
 }
 
-table.table-bordered th:first-child,
-table.table-bordered td:first-child {
-    width: 6%;
-}
-
-table.table-bordered th:not(:first-child),
-table.table-bordered td:not(:first-child) {
-    width: 13%;
-}
+/* Couleurs par type d'événement */
+.event-box.reunion-film { background-color: #007bff; color: white; }
+.event-box.reunion-jeu { background-color: #28a745; color: white; }
+.event-box.reunion-conference { background-color: #ffc107; color: black; }
+.event-box.reunion-debat { background-color: #fd7e14; color: white; }
+.event-box.reunion-organisation { background-color: #6f42c1; color: white; }
+.event-box.reunion-atelier { background-color: #20c997; color: white; }
+.event-box.reunion-divers { background-color: #17a2b8; color: white; }
+.event-box.chantier-participatif { background-color: #e83e8c; color: white; }
+.event-box.repas { background-color: #343a40; color: white; }
 </style>
 {% endblock %}

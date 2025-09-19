@@ -4,26 +4,25 @@
 namespace App\Controller;
 
 use App\Entity\Event;
+use App\Form\EventType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Request;
 
 class AgendaController extends AbstractController
 {
     #[Route('/agenda/{weekOffset}', name: 'agenda', defaults: ['weekOffset' => 0])]
     public function index(int $weekOffset, EntityManagerInterface $em): Response
     {
-        // Début de la semaine (lundi)
         $startOfWeek = new \DateTime();
         $startOfWeek->modify('Monday this week');
         $startOfWeek->modify("+$weekOffset week");
 
-        // Fin de la semaine (dimanche)
         $endOfWeek = clone $startOfWeek;
         $endOfWeek->modify('+6 days')->setTime(23, 59, 59);
 
-        // Récupérer les événements de la semaine
         $eventsRaw = $em->getRepository(Event::class)
             ->createQueryBuilder('e')
             ->where('e.date BETWEEN :start AND :end')
@@ -34,7 +33,6 @@ class AgendaController extends AbstractController
             ->getQuery()
             ->getResult();
 
-        // Organiser les événements par jour et heure
         $events = [];
         foreach ($eventsRaw as $event) {
             $dayKey = $event->getDate()->format('Y-m-d');
@@ -42,7 +40,6 @@ class AgendaController extends AbstractController
             $events[$dayKey][$hourKey][] = $event;
         }
 
-        // Générer les jours de la semaine pour l'affichage
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $day = clone $startOfWeek;
@@ -50,10 +47,8 @@ class AgendaController extends AbstractController
             $days[] = $day;
         }
 
-        // Heures de 8h à 22h
         $hours = range(8, 22);
 
-        // Calculer quel jour est aujourd'hui
         $today = new \DateTime();
         $isToday = [];
         foreach ($days as $idx => $day) {
@@ -66,6 +61,25 @@ class AgendaController extends AbstractController
             'events' => $events,
             'weekOffset' => $weekOffset,
             'isToday' => $isToday,
+        ]);
+    }
+
+    #[Route('/event/{id}/edit', name: 'event_edit')]
+    public function edit(Event $event, Request $request, EntityManagerInterface $em): Response
+    {
+        $form = $this->createForm(EventType::class, $event);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $em->flush();
+            $this->addFlash('success', 'Événement modifié !');
+
+            return $this->redirectToRoute('agenda');
+        }
+
+        return $this->render('event/edit.html.twig', [
+            'form' => $form->createView(),
+            'event' => $event,
         ]);
     }
 }

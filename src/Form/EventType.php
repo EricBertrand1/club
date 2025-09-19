@@ -24,14 +24,14 @@ class EventType extends AbstractType
             ->add('texteLong', TextareaType::class, ['required' => false])
             ->add('type', ChoiceType::class, [
                 'choices' => [
-                    'Réunion film' => 'réunion film',
-                    'Réunion jeu' => 'réunion jeu',
-                    'Réunion conférence' => 'réunion conférence',
-                    'Réunion débat' => 'réunion débat',
-                    'Réunion organisation' => 'réunion organisation',
-                    'Réunion atelier' => 'réunion atelier',
-                    'Réunion divers' => 'réunion divers',
-                    'Chantier participatif' => 'chantier participatif',
+                    'Réunion film' => 'reunion-film',
+                    'Réunion jeu' => 'reunion-jeu',
+                    'Réunion conférence' => 'reunion-conference',
+                    'Réunion débat' => 'reunion-debat',
+                    'Réunion organisation' => 'reunion-organisation',
+                    'Réunion atelier' => 'reunion-atelier',
+                    'Réunion divers' => 'reunion-divers',
+                    'Chantier participatif' => 'chantier-participatif',
                     'Repas' => 'repas',
                 ]
             ]);
@@ -39,6 +39,8 @@ class EventType extends AbstractType
 
     public function configureOptions(OptionsResolver $resolver)
     {
-        $resolver->setDefaults(['data_class' => Event::class]);
+        $resolver->setDefaults([
+            'data_class' => Event::class,
+        ]);
     }
 }
