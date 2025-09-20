@@ -5,13 +5,27 @@
 {% block body %}
 <h1>Agenda - Semaine du {{ days[0]|date('d/m/Y') }} au {{ days[6]|date('d/m/Y') }}</h1>
 
-<div class="mb-3 d-flex justify-content-between align-items-center">
-    <div>
-        <a class="btn btn-outline-primary" href="{{ path('agenda', {'weekOffset': weekOffset - 1}) }}">Semaine précédente</a>
-        <a class="btn btn-outline-primary" href="{{ path('agenda', {'weekOffset': weekOffset + 1}) }}">Semaine suivante</a>
+<div class="mb-3 d-flex justify-content-between align-items-start">
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="{{ path('agenda', {'weekOffset': weekOffset - 1}) }}">
+            Semaine précédente
+        </a>
+        <a class="btn btn-outline-primary" href="{{ path('agenda', {'weekOffset': weekOffset + 1}) }}">
+            Semaine suivante
+        </a>
     </div>
-    <a class="btn btn-success" href="{{ path('event_new') }}">Ajouter un événement</a>
+
+    <div class="d-flex flex-column align-items-end gap-2">
+        <button type="button"
+                class="btn btn-outline-secondary"
+                onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='/'; }">
+            Quitter
+        </button>
+
+        <a class="btn btn-success" href="{{ path('event_new') }}">Ajouter un événement</a>
+    </div>
 </div>
+
 
 {% set jours = {
     'Monday': 'Lundi',
@@ -30,20 +44,26 @@
             {% for idx, day in days %}
                 {% set jourNom = jours[day|date('l')] %}
                 {% set classesJour = (isToday[idx] ? 'today ' : '') ~ (jourNom == 'Dimanche' ? 'dimanche' : '') %}
+                {% set dayKey = day|date('Y-m-d') %}
                 <th class="{{ classesJour }} day-col">
-                    {{ jourNom }}<br>{{ day|date("d/m") }}
+                    {{ jourNom }}<br>{{ day|date("d/m") }}<br>
+                    <small class="saint text-muted">{{ saints[dayKey] ?? '-' }}</small>
                 </th>
             {% endfor %}
         </tr>
     </thead>
-    <tbody>
+        <tbody>
         {% for hour in hours %}
             <tr>
                 <td class="hour-col">{{ hour }}h</td>
                 {% for idx, day in days %}
                     {% set dayKey = day|date('Y-m-d') %}
                     {% set hourKey = '%02d'|format(hour) %}
-                    <td class="day-col">
+                    <td class="day-col addable-cell"
+                        data-date="{{ dayKey }}"
+                        data-hour="{{ hourKey }}"
+                        title="Ajouter un événement le {{ day|date('d/m') }} à {{ hour }}h">
+
                         {% if events[dayKey][hourKey] is defined %}
                             {% for event in events[dayKey][hourKey] %}
                                 {% set eventClass = event.type|lower|replace({' ':'-','é':'e','è':'e','à':'a','ç':'c'}) %}
@@ -62,6 +82,25 @@
         {% endfor %}
     </tbody>
 </table>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('td.addable-cell').forEach(function (td) {
+    td.addEventListener('click', function (e) {
+      // Si on clique sur un lien (ex: un événement existant), on ne fait rien
+      if (e.target.closest('a')) return;
+
+      const date = this.dataset.date;
+      const hour = this.dataset.hour;
+      if (date && hour) {
+        const url = "{{ path('event_new') }}?date=" + encodeURIComponent(date) + "&hour=" + encodeURIComponent(hour);
+        window.location.href = url;
+      }
+    });
+  });
+});
+</script>
+
 {% endblock %}
 
 {% block styles %}
@@ -101,5 +140,17 @@ table.table-bordered td { text-align: center; vertical-align: middle; }
 .event-box.reunion-divers { background-color: #17a2b8; color: white; }
 .event-box.chantier-participatif { background-color: #e83e8c; color: white; }
 .event-box.repas { background-color: #343a40; color: white; }
+
+th .saint {
+    display: block;     /* au lieu de inline-block */
+    margin-top: .15rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+/* Rendre évident que la cellule est cliquable */
+td.addable-cell { cursor: pointer; position: relative; }
+td.addable-cell:hover { background-color: #f9fbff; }
+
 </style>
 {% endblock %}

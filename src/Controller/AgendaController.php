@@ -10,11 +10,12 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Request;
+use App\Service\SaintService;
 
 class AgendaController extends AbstractController
 {
     #[Route('/agenda/{weekOffset}', name: 'agenda', defaults: ['weekOffset' => 0])]
-    public function index(int $weekOffset, EntityManagerInterface $em): Response
+    public function index(int $weekOffset, EntityManagerInterface $em, SaintService $saintService): Response
     {
         $startOfWeek = new \DateTime();
         $startOfWeek->modify('Monday this week');
@@ -40,6 +41,7 @@ class AgendaController extends AbstractController
             $events[$dayKey][$hourKey][] = $event;
         }
 
+        // Jours de la semaine
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $day = clone $startOfWeek;
@@ -47,20 +49,29 @@ class AgendaController extends AbstractController
             $days[] = $day;
         }
 
+        // Heures affichées
         $hours = range(8, 22);
 
+        // Marquage du jour courant
         $today = new \DateTime();
         $isToday = [];
         foreach ($days as $idx => $day) {
             $isToday[$idx] = $day->format('Y-m-d') === $today->format('Y-m-d');
         }
 
+        // >>> SAINTS : calcul et passage au template <<<
+        $saints = [];
+        foreach ($days as $d) {
+            $saints[$d->format('Y-m-d')] = $saintService->getSaintForDate($d) ?? '-';
+        }
+
         return $this->render('agenda/index.html.twig', [
-            'days' => $days,
-            'hours' => $hours,
-            'events' => $events,
+            'days'       => $days,
+            'hours'      => $hours,
+            'events'     => $events,
             'weekOffset' => $weekOffset,
-            'isToday' => $isToday,
+            'isToday'    => $isToday,
+            'saints'     => $saints, // 👈 indispensable
         ]);
     }
 
@@ -102,6 +113,22 @@ class AgendaController extends AbstractController
     public function new(Request $request, EntityManagerInterface $em): Response
     {
         $event = new Event();
+
+        // Préremplissage depuis les query params
+        if ($dateStr = $request->query->get('date')) {
+            try {
+                $date = new \DateTime($dateStr); // "Y-m-d"
+                $event->setDate($date);
+            } catch (\Exception $e) { /* ignore si invalide */ }
+        }
+
+        if ($hourStr = $request->query->get('hour')) {
+            $h = max(0, min(23, (int)$hourStr));
+            // Pour un champ Time/DateTime : on met aujourd'hui + l'heure
+            $time = (new \DateTime('today'))->setTime($h, 0);
+            $event->setHeure($time);
+        }
+
         $form = $this->createForm(EventType::class, $event);
         $form->handleRequest($request);
 
@@ -114,7 +141,7 @@ class AgendaController extends AbstractController
         }
 
         return $this->render('event/edit.html.twig', [
-            'form' => $form->createView(),
+            'form'  => $form->createView(),
             'event' => $event,
         ]);
     }
