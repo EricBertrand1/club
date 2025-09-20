@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+{% block title %}{{ objet.titreObjet }}{% endblock %}
+
+{% block body %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <h1 class="m-0">{{ objet.titreObjet }}</h1>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="{{ path('boutique_index') }}">Retour</a>
+      <a class="btn btn-outline-primary" href="{{ path('boutique_edit', {idObjet: objet.idObjet}) }}">Modifier</a>
+      <form action="{{ path('boutique_delete', {idObjet: objet.idObjet}) }}" method="post"
+            onsubmit="return confirm('Supprimer cette annonce ?');">
+        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ objet.idObjet) }}">
+        <button class="btn btn-danger" type="submit">Supprimer</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-md-7">
+      <div id="gal" class="d-flex flex-column gap-3">
+        {% set imgs = [objet.imageObjet1, objet.imageObjet2, objet.imageObjet3]|filter(v => v) %}
+        {% if imgs %}
+          {% for f in imgs %}
+            <img src="{{ asset('uploads/boutique/' ~ f) }}" class="img-fluid rounded" alt="">
+          {% endfor %}
+        {% else %}
+          <img src="{{ asset('images/placeholder.png') }}" class="img-fluid rounded" alt="">
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-md-5">
+      <div class="card">
+        <div class="card-body">
+          <div class="text-muted mb-2">{{ objet.categorie }} • {{ objet.date|date('d/m/Y') }}</div>
+          <h2 class="h4">Prix : {{ objet.prix }} écus</h2>
+          <p class="mt-3">{{ objet.description|nl2br }}</p>
+          <div class="mt-3 text-muted">Proposé par : {{ objet.auteur }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

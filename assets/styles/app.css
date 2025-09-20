@@ -40,6 +40,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 .25rem .75rem rgba(0,0,0,.05);
+  border: 3px solid #dbe7ff;        /* ou var(--bs-border-color) */
 }
 
 /* Image qui s'adapte à la boîte sans être rognée */
@@ -64,3 +65,6 @@
   opacity: 1 !important;    /* Opacité 100% au survol, ajout de !important */
 }
 
+.menu-box:hover {
+  border-color: #b6d1ff;
+}
