@@ -12,6 +12,10 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\String\Slugger\SluggerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\Filesystem\Exception\IOExceptionInterface;
+
+
+
 
 #[Route('/boutique')]
 class BoutiqueController extends AbstractController
@@ -126,18 +130,73 @@ class BoutiqueController extends AbstractController
         ]);
     }
 
+    private function archiveImagesOnDelete(Objet $objet): void
+    {
+        $srcDir = rtrim($this->getParameter('uploads_boutique_dir'), DIRECTORY_SEPARATOR);
+        $dstDir = rtrim($this->getParameter('uploads_boutique_archive_dir'), DIRECTORY_SEPARATOR);
+
+        $fs = new Filesystem();
+        $fs->mkdir($dstDir);
+
+        $files = array_filter([
+            $objet->getImageObjet1(),
+            $objet->getImageObjet2(),
+            $objet->getImageObjet3(),
+        ]);
+
+        if (!$files) {
+            return;
+        }
+
+        $stamp = (new \DateTimeImmutable())->format('Ymd_His');
+
+        foreach ($files as $file) {
+            $src = $srcDir . DIRECTORY_SEPARATOR . $file;
+            if (!$fs->exists($src)) {
+                continue; // fichier déjà manquant : on ignore
+            }
+
+            $base = pathinfo($file, PATHINFO_FILENAME);
+            $ext  = pathinfo($file, PATHINFO_EXTENSION);
+            $dest = $dstDir . DIRECTORY_SEPARATOR . $file;
+
+            // Si un fichier du même nom existe déjà dans l’archive, on suffixe avec un timestamp
+            if ($fs->exists($dest)) {
+                $dest = $dstDir . DIRECTORY_SEPARATOR . sprintf('%s__%s%s',
+                    $base,
+                    $stamp,
+                    $ext ? '.'.$ext : ''
+                );
+            }
+
+            // Déplacement (rename = move)
+            $fs->rename($src, $dest, true);
+        }
+    }
+
     #[Route('/{idObjet}/delete', name: 'boutique_delete', methods: ['POST'], requirements: ['idObjet' => '\d+'])]
     public function delete(Request $request, #[MapEntity(id: 'idObjet')] Objet $objet, EntityManagerInterface $em): Response
     {
         if ($this->isCsrfTokenValid('delete'.$objet->getIdObjet(), $request->request->get('_token'))) {
+
+            try {
+                $this->archiveImagesOnDelete($objet); // 👈 déplace les fichiers
+            } catch (\Throwable $e) {
+                // On n’empêche pas la suppression de l’annonce si l’archive échoue
+                $this->addFlash('warning', "Annonce supprimée, mais l’archivage des images a échoué.");
+            }
+
             $em->remove($objet);
             $em->flush();
-            $this->addFlash('success', 'Objet supprimé.');
+
+            $this->addFlash('success', 'Objet supprimé (images archivées).');
         } else {
             $this->addFlash('error', 'Token CSRF invalide.');
         }
+
         return $this->redirectToRoute('boutique_index');
     }
+
 
     private function handleUploads($form, Objet $objet, SluggerInterface $slugger): void
     {

@@ -6,6 +6,7 @@
 # config/services.yaml
 parameters:
   uploads_boutique_dir: '%kernel.project_dir%/public/uploads/boutique'
+  uploads_boutique_archive_dir: '%kernel.project_dir%/public/oldUploads/boutique'
   uploads_boutique_public: '/uploads/boutique'
 
 services:
