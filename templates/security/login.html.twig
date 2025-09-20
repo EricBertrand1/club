@@ -1,0 +1,26 @@
+{% extends 'base.html.twig' %}
+{% block title %}Se connecter{% endblock %}
+
+{% block body %}
+<div class="container py-5" style="max-width:480px">
+  <h1 class="mb-4">Se connecter</h1>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+  {% endif %}
+
+  <form method="post" action="{{ path('app_login') }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+    <div class="mb-3">
+      <label class="form-label">Login</label>
+      <input type="text" name="_username" class="form-control" value="{{ last_username }}" required autofocus>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Mot de passe</label>
+      <input type="password" name="_password" class="form-control" required>
+    </div>
+    <button class="btn btn-primary" type="submit">Connexion</button>
+  </form>
+</div>
+{% endblock %}

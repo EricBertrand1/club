@@ -1,0 +1,7 @@
+Création d'utilisateur:
+php bin/console app:create-user alice
+# ou
+php bin/console app:create-user bob "motdepasse"
+
+Dans les contrôleurs et templates:
+$this->denyAccessUnlessGranted('ROLE_MEMBER'); // contrôleur

@@ -10,10 +10,27 @@
     <div class="page-title-wrap">
       <h1 class="page-title">Club</h1>
     </div>
-    <button class="btn btn-outline-primary d-flex align-items-center" id="login-button">
-      <img src="{{ asset('images/menu/account circle.png') }}" alt="Login" class="me-2" style="width: 20px; height: 20px;">
-      <span>Se connecter</span>
-    </button>
+    {# en haut à droite #}
+    <div>
+      {% if app.user %}
+        <div class="btn-group">
+          <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+            {{ app.user.userIdentifier }}
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{{ path('account_password') }}">Changer le mot de passe</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item text-danger" href="{{ path('app_logout') }}">Se déconnecter</a></li>
+          </ul>
+        </div>
+      {% else %}
+        <a class="btn btn-outline-primary d-flex align-items-center" id="login-button"
+          href="{{ path('app_login') }}">
+          <img src="{{ asset('images/menu/account circle.png') }}" alt="Login" class="me-2" style="width:20px;height:20px;">
+          <span>Se connecter</span>
+        </a>
+      {% endif %}
+    </div>
   </div>
 
   {# Liste des rubriques (avec image spécifique) #}
