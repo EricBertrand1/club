@@ -3,12 +3,67 @@
 {% block title %}Modifier événement{% endblock %}
 
 {% block body %}
-<h1>Modifier événement</h1>
+<div class="container mt-4">
+    <h1 class="mb-4">Modifier événement</h1>
 
-{{ form_start(form) }}
-    {{ form_widget(form) }}
-    <button class="btn btn-primary mt-3">Enregistrer</button>
-{{ form_end(form) }}
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {# Formulaire principal pour l'édition #}
+            {{ form_start(form, {'attr': {'class': 'needs-validation'}}) }}
 
-<a href="{{ path('agenda') }}" class="btn btn-link mt-3">Retour à l'agenda</a>
+                <div class="mb-3">
+                    {{ form_label(form.type) }}
+                    {{ form_widget(form.type, {'attr': {'class': 'form-select'}}) }}
+                    {{ form_errors(form.type) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.texteCourt, 'Titre') }}
+                    {{ form_widget(form.texteCourt, {'attr': {'class': 'form-control'}}) }}
+                    {{ form_errors(form.texteCourt) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.texteLong, 'Description') }}
+                    {{ form_widget(form.texteLong, {'attr': {'class': 'form-control', 'rows': 4}}) }}
+                    {{ form_errors(form.texteLong) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.date) }}
+                    {{ form_widget(form.date, {'attr': {'class': 'form-control'}}) }}
+                    {{ form_errors(form.date) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.heure) }}
+                    {{ form_widget(form.heure, {'attr': {'class': 'form-control'}}) }}
+                    {{ form_errors(form.heure) }}
+                </div>
+
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            {{ form_end(form) }}
+
+            {% if event.id is not null %}
+                <div class="d-flex justify-content-between mt-4">
+                    {# Bouton Supprimer #}
+                    <form action="{{ path('event_delete', {'id': event.id}) }}" method="post"
+                        onsubmit="return confirm('Voulez-vous vraiment supprimer cet événement ?');"
+                        style="display:inline;">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ event.id) }}">
+                        <button class="btn btn-danger" type="submit">Supprimer</button>
+                    </form>
+
+                    {# Bouton Dupliquer #}
+                    <form action="{{ path('event_duplicate', {'id': event.id}) }}" method="post" style="display:inline;">
+                        <input type="hidden" name="_token" value="{{ csrf_token('duplicate' ~ event.id) }}">
+                        <button class="btn btn-secondary" type="submit">Dupliquer événement</button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <a href="{{ path('agenda') }}" class="btn btn-link mt-3">Retour à l'agenda</a>
+</div>
 {% endblock %}

@@ -5,9 +5,12 @@
 {% block body %}
 <h1>Agenda - Semaine du {{ days[0]|date('d/m/Y') }} au {{ days[6]|date('d/m/Y') }}</h1>
 
-<div class="mb-3">
-    <a class="btn btn-outline-primary" href="{{ path('agenda', {'weekOffset': weekOffset - 1}) }}">Semaine précédente</a>
-    <a class="btn btn-outline-primary" href="{{ path('agenda', {'weekOffset': weekOffset + 1}) }}">Semaine suivante</a>
+<div class="mb-3 d-flex justify-content-between align-items-center">
+    <div>
+        <a class="btn btn-outline-primary" href="{{ path('agenda', {'weekOffset': weekOffset - 1}) }}">Semaine précédente</a>
+        <a class="btn btn-outline-primary" href="{{ path('agenda', {'weekOffset': weekOffset + 1}) }}">Semaine suivante</a>
+    </div>
+    <a class="btn btn-success" href="{{ path('event_new') }}">Ajouter un événement</a>
 </div>
 
 {% set jours = {
