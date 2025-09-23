@@ -12,41 +12,50 @@
     </div>
     {# en haut à droite #}
     <div>
-      {% if app.user %}
-        <div class="btn-group">
-          <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
-            {{ app.user.userIdentifier }}
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="{{ path('account_password') }}">Changer le mot de passe</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item text-danger" href="{{ path('app_logout') }}">Se déconnecter</a></li>
-          </ul>
-        </div>
-      {% else %}
-        <a class="btn btn-outline-primary d-flex align-items-center" id="login-button"
-          href="{{ path('app_login') }}">
-          <img src="{{ asset('images/menu/account circle.png') }}" alt="Login" class="me-2" style="width:20px;height:20px;">
-          <span>Se connecter</span>
-        </a>
-      {% endif %}
+      <div class="d-flex align-items-center gap-2">
+        {# Bouton de signalement (à gauche) #}
+        <a class="btn btn-warning" id="report-button"
+          href="{{ path('report_new') }}">Signaler un problème</a>
+
+        {% if app.user %}
+          <div class="btn-group">
+            <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+              {{ app.user.userIdentifier }}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="{{ path('account_password') }}">Changer le mot de passe</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="{{ path('app_logout') }}">Se déconnecter</a></li>
+            </ul>
+          </div>
+        {% else %}
+          <a class="btn btn-outline-primary d-flex align-items-center" id="login-button"
+            href="{{ path('app_login') }}">
+            <img src="{{ asset('images/menu/account circle.png') }}" alt="Login" class="me-2" style="width:20px;height:20px;">
+            <span>Se connecter</span>
+          </a>
+        {% endif %}
+      </div>
     </div>
+
   </div>
 
   {# Liste des rubriques (avec image spécifique) #}
   {% set items = [
-    {label:'Agenda',     img:'agenda.jpg',      href:path('agenda', {'weekOffset': 0})},
-    {label:'Annuaire',   img:'annuaire.jpg',    href:'#'},
-    {label:'Astuces',    img:'astuces.jpg',     href:'#'},
-    {label:'Boutique', img:'boutique.jpg',      href:path('boutique_index')},
-    {label:'Castellum',  img:'castellum.jpg',   href:'#'},
-    {label:'Chants',     img:'chants.jpg',      href:'#'},
-    {label:'Coaching',   img:'coaching.jpg',    href:'#'},
-    {label:'Formation',  img:'formation.jpg',   href:'#'},
-    {label:'Projets',    img:'projets.jpg',     href:'#'},
-    {label:'Annonces',   img:'Annonces.jpg',    href:'#'},
-    {label:'Services',   img:'services.jpg',    href:'#'}
-  ] %}
+  {label:'Agenda',     img:'agenda.jpg',      href:path('agenda', {'weekOffset': 0})},
+  {label:'Annuaire',   img:'annuaire.jpg',    href:path('annuaire_index')},
+  {label:'Astuces',    img:'astuces.jpg',     href:'#'},
+  {label:'Boutique',   img:'boutique.jpg',    href:path('boutique_index')},
+  {label:'Castellum', img:'castellum.jpg',    href:path('castellum_index')},
+  {label:'Chants',     img:'chants.jpg',      href:'#'},
+  {label:'Coaching',   img:'coaching.jpg',    href:path('coaching_index')},
+  {label:'Formation',  img:'formation.jpg',   href:'#'},
+  {label:'Projets',    img:'projets.jpg',     href:'#'},
+  {label:'Production', img:'production.jpg',  href:'#'},
+  {label:'Annonces',   img:'Annonces.jpg',    href:'#'},
+  {label:'Services',   img:'services.jpg',    href:'#'}
+] %}
+
 
   <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
   {% for it in items %}

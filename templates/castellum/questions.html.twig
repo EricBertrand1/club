@@ -1,0 +1,55 @@
+{% extends 'base.html.twig' %}
+{% block title %}Castellum — Questions{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h4 m-0">Questions — {{ subcategory.code }} — {{ subcategory.name }}</h1>
+      <div class="text-muted small">Catégorie : {{ labels[subcategory.code] ?? subcategory.code }}</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="{{ path('castellum_index') }}">Retour</a>
+      <a class="btn btn-primary" href="{{ path('castellum_question_new', { id: subcategory.id }) }}">Ajouter une question</a>
+    </div>
+  </div>
+
+  {% for msg in app.flashes('success') %}<div class="alert alert-success">{{ msg }}</div>{% endfor %}
+
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Niveau</th>
+          <th>Sujet</th>
+          <th>Type</th>
+          <th>Question</th>
+          <th>MAJ</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for q in questions %}
+          <tr>
+            <td>{{ q.levelQuestion|capitalize }}</td>
+            <td>{{ q.subject }}</td>
+            <td>{{ q.questionType }}</td>
+            <td class="text-truncate" style="max-width: 420px;">{{ q.questionText }}</td>
+            <td>{{ q.updatedAt|date('d/m/Y H:i') }}</td>
+            <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary" href="{{ path('castellum_question_edit', { id: q.id }) }}">Éditer</a>
+            <form method="post" action="{{ path('castellum_question_delete', { id: q.id }) }}" class="d-inline"
+                    onsubmit="return confirm('Supprimer cette question ?');">
+                <input type="hidden" name="_token" value="{{ csrf_token('castellum_question_delete_' ~ q.id) }}">
+                <button class="btn btn-sm btn-outline-danger">Supprimer</button>
+            </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-4">Aucune question pour l’instant.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

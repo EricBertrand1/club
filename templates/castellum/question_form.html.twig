@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+{% block title %}Castellum — {{ mode == 'new' ? 'Nouvelle question' : 'Éditer la question' }}{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0">{{ mode == 'new' ? 'Nouvelle question' : 'Éditer la question' }}</h1>
+    <a class="btn btn-outline-secondary" href="{{ path('castellum_questions', { id: subcategory.id }) }}">Quitter</a>
+  </div>
+
+  {{ form_start(form) }}
+  {{ form_errors(form) }}
+
+  <div class="row g-3">
+    <div class="col-md-6">{{ form_row(form.subcategory) }}</div>
+    <div class="col-md-3">{{ form_row(form.levelQuestion) }}</div>
+    <div class="col-md-3">{{ form_row(form.questionType) }}</div>
+
+    <div class="col-md-6">{{ form_row(form.subject) }}</div>
+    <div class="col-md-6">
+    {{ form_row(form.questionImage) }}
+    {% if form.vars.data and form.vars.data.questionImage %}
+        <div class="mt-2">
+        <div class="text-muted small mb-1">Image actuelle :</div>
+        <img src="{{ asset(form.vars.data.questionImage) }}" alt="" class="img-fluid rounded border" style="max-height:200px;">
+        </div>
+    {% endif %}
+    </div>
+
+    <div class="col-md-6">
+    {{ form_row(form.questionImageFile) }}
+    {% if form.vars.data and form.vars.data.questionImage %}
+        <div class="mt-2">
+        {{ form_row(form.removeImage) }}
+        </div>
+    {% endif %}
+    </div>
+
+    <div class="col-12">{{ form_row(form.questionText) }}</div>
+    <div class="col-12">{{ form_row(form.answerText) }}</div>
+    <div class="col-12">{{ form_row(form.explanation) }}</div>
+  </div>
+
+  <div class="d-flex justify-content-end gap-2 mt-4">
+    <a class="btn btn-outline-secondary" href="{{ path('castellum_questions', { id: subcategory.id }) }}">Quitter</a>
+    <button class="btn btn-primary" type="submit">Enregistrer</button>
+  </div>
+
+  {{ form_end(form) }}
+</div>
+{% endblock %}

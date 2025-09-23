@@ -16,7 +16,14 @@ class AccountController extends AbstractController
         UserPasswordHasherInterface $hasher,
         EntityManagerInterface $em
     ): Response {
-        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        if ($request->isMethod('POST')) {
+            // Les actions qui modifient exigent une auth complète
+            $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        } else {
+            // Lecture/affichage OK si utilisateur "remembered"
+            $this->denyAccessUnlessGranted('IS_AUTHENTICATED_REMEMBERED');
+        }
+
         $user = $this->getUser();
 
         if ($request->isMethod('POST')) {

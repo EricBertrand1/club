@@ -1,0 +1,62 @@
+{% extends 'base.html.twig' %}
+{% block title %}Signaler un problème{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="page-title m-0">Signaler un problème</h1>
+    <a href="{{ path('app_home') }}" class="btn btn-outline-secondary">Quitter</a>
+  </div>
+
+  {# Flashs du module “Signalement” #}
+    {% for msg in app.flashes('report_success') %}
+    <div class="alert alert-success">{{ msg }}</div>
+    {% endfor %}
+
+  <form method="post" action="{{ path('report_new') }}">
+    {{ form_row(form._token) }}
+
+    <div class="row g-3">
+      <div class="col-12 col-md-6">
+        {{ form_label(form.type) }}
+        {{ form_widget(form.type, {'attr': {'class':'form-select'}}) }}
+        {{ form_errors(form.type) }}
+      </div>
+
+      <div class="col-12 col-md-6">
+        {{ form_label(form.context) }}
+        {{ form_widget(form.context, {'attr': {'class':'form-select'}}) }}
+        {{ form_errors(form.context) }}
+      </div>
+
+      <div class="col-12">
+        {{ form_label(form.message) }}
+        {{ form_widget(form.message, {'attr': {'class':'form-control'}}) }}
+        {{ form_errors(form.message) }}
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end mt-4 gap-2">
+      <a href="{{ path('app_home') }}" class="btn btn-outline-secondary" id="quit-btn">Quitter</a>
+      <button type="submit" class="btn btn-primary">Enregistrer et quitter</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Confirmation si l'utilisateur clique sur "Quitter" avec des modifications non enregistrées
+  (function(){
+    const form = document.querySelector('form');
+    const quit = document.getElementById('quit-btn');
+    let isDirty = false;
+
+    form.addEventListener('input', () => { isDirty = true; });
+    quit.addEventListener('click', (e) => {
+      if (isDirty && !confirm("Êtes-vous sûr de vouloir quitter sans enregistrer ?")) {
+        e.preventDefault();
+      }
+    });
+  })();
+</script>
+{% endblock %}

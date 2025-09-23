@@ -1,0 +1,199 @@
+{% extends 'base.html.twig' %}
+{% block title %}Modifier une adresse — Annuaire{% endblock %}
+
+{% block body %}
+<div class="container py-4">
+
+  {# Barre d'actions collante (pas de champs de formulaire ici) #}
+  <div class="position-sticky top-0 bg-body border-bottom py-2 mb-3" style="z-index: 1020;">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="h4 m-0">Modifier une adresse</h1>
+        <div class="text-muted small">
+          ID #{{ entry.id }} • Créée le {{ entry.createdAt|date('d/m/Y H:i') }}
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-outline-secondary" id="quit-btn" href="{{ path('annuaire_index') }}">Quitter</a>
+        <button class="btn btn-primary" id="save-btn" form="entry-form" type="submit">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  {# Flashs spécifiques à l’annuaire #}
+  {% for msg in app.flashes('annuaire_success') %}
+    <div class="alert alert-success">{{ msg }}</div>
+  {% endfor %}
+  {% for msg in app.flashes('annuaire_error') %}
+    <div class="alert alert-danger">{{ msg }}</div>
+  {% endfor %}
+
+  {{ form_start(form, { action: path('annuaire_edit', { id: entry.id }), attr: { id: 'entry-form' } }) }}
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        {{ form_label(form.category) }}
+        {{ form_widget(form.category, {'attr': {'class':'form-select'}}) }}
+        {{ form_errors(form.category) }}
+      </div>
+
+      <div class="col-md-4">
+        {{ form_label(form.type) }}
+        {{ form_widget(form.type, {'attr': {'class':'form-select'}}) }}
+        {{ form_errors(form.type) }}
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label d-block">Note (0–5)</label>
+        {{ form_widget(form.rating, {'attr': {'id':'rating-input', 'class':'d-none'}}) }}
+        <div id="rating-stars" class="d-inline-flex gap-1 align-middle" aria-label="Notation">
+          {% for n in 1..5 %}
+            <button type="button" class="btn btn-sm btn-outline-secondary rating-star" data-value="{{ n }}" aria-label="{{ n }} sur 5">★</button>
+          {% endfor %}
+          <span class="ms-2 text-muted small" id="rating-text"></span>
+        </div>
+        {{ form_errors(form.rating) }}
+      </div>
+
+      <div class="col-md-6">
+        {{ form_label(form.designation) }}
+        {{ form_widget(form.designation, {'attr': {'placeholder':'Raison sociale / désignation', 'autofocus': true}}) }}
+        {{ form_errors(form.designation) }}
+      </div>
+
+      <div class="col-md-3">
+        {{ form_label(form.lastName) }}
+        {{ form_widget(form.lastName, {'attr': {'placeholder':'Nom'}}) }}
+        {{ form_errors(form.lastName) }}
+      </div>
+
+      <div class="col-md-3">
+        {{ form_label(form.firstName) }}
+        {{ form_widget(form.firstName, {'attr': {'placeholder':'Prénom'}}) }}
+        {{ form_errors(form.firstName) }}
+      </div>
+
+      <div class="col-md-6">
+        {{ form_label(form.address) }}
+        {{ form_widget(form.address, {'attr': {'placeholder':'Adresse'}}) }}
+        {{ form_errors(form.address) }}
+      </div>
+
+      <div class="col-md-2">
+        {{ form_label(form.postalCode) }}
+        {{ form_widget(form.postalCode, {'attr': {'placeholder':'Code postal'}}) }}
+        {{ form_errors(form.postalCode) }}
+      </div>
+
+      <div class="col-md-4">
+        {{ form_label(form.city) }}
+        {{ form_widget(form.city, {'attr': {'placeholder':'Commune'}}) }}
+        {{ form_errors(form.city) }}
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">Téléphone</label>
+        <div class="input-group">
+          <span class="input-group-text">📞</span>
+          {{ form_widget(form.phone, {'attr': {'placeholder': 'ex : 06 12 34 56 78'}}) }}
+        </div>
+        {{ form_errors(form.phone) }}
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">Email</label>
+        <div class="input-group">
+          <span class="input-group-text">✉️</span>
+          {{ form_widget(form.email, {'attr': {'placeholder': 'ex : contact@exemple.fr'}}) }}
+        </div>
+        {{ form_errors(form.email) }}
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">Site web</label>
+        <div class="input-group">
+          <span class="input-group-text">🌐</span>
+          {{ form_widget(form.website, {'attr': {'placeholder': 'https://…'}}) }}
+        </div>
+        {{ form_errors(form.website) }}
+      </div>
+
+      {# ✅ Description DANS le formulaire pour être enregistrée #}
+      <div class="col-12">
+        {{ form_label(form.description) }}
+        {{ form_widget(form.description, {'attr': {'rows': 5, 'placeholder': 'Mots clés, notes, détails…'}}) }}
+        {{ form_errors(form.description) }}
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end mt-4 gap-2">
+      <a class="btn btn-outline-secondary" id="quit-btn-bottom" href="{{ path('annuaire_index') }}">Quitter</a>
+      <button class="btn btn-primary" type="submit">Enregistrer</button>
+    </div>
+
+  {{ form_end(form) }}
+</div>
+
+<script>
+// --- Détection de modifications pour prévenir à la sortie ---
+(function(){
+  const form = document.getElementById('entry-form');
+  const quitTop = document.getElementById('quit-btn');
+  const quitBottom = document.getElementById('quit-btn-bottom');
+  const saveBtn = document.getElementById('save-btn');
+  let isDirty = false;
+
+  function markDirty(){ isDirty = true; }
+  if (form) {
+    form.addEventListener('input', markDirty, { passive: true });
+    form.addEventListener('change', markDirty, { passive: true });
+  }
+
+  if (saveBtn) saveBtn.addEventListener('click', () => { isDirty = false; });
+
+  function confirmQuit(e){
+    if (isDirty && !confirm("Des modifications n'ont pas été enregistrées. Quitter quand même ?")) {
+      e.preventDefault();
+    }
+  }
+  if (quitTop) quitTop.addEventListener('click', confirmQuit);
+  if (quitBottom) quitBottom.addEventListener('click', confirmQuit);
+
+  window.addEventListener('beforeunload', function (e) {
+    if (!isDirty) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+})();
+
+// --- Widget étoiles pour 'rating' (0..5) ---
+(function(){
+  const input = document.getElementById('rating-input');
+  const stars = document.querySelectorAll('#rating-stars .rating-star');
+  const label = document.getElementById('rating-text');
+
+  function redraw(v){
+    stars.forEach((btn, idx) => {
+      const on = idx < v;
+      btn.classList.toggle('btn-warning', on);
+      btn.classList.toggle('text-dark', on);
+      btn.classList.toggle('btn-outline-secondary', !on);
+    });
+    if (label) label.textContent = v ? (v + ' / 5') : '0 / 5';
+  }
+
+  const initial = parseInt(input?.value || '0', 10) || 0;
+  redraw(initial);
+
+  stars.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = parseInt(btn.getAttribute('data-value'), 10);
+      if (input) input.value = v;
+      redraw(v);
+      const event = new Event('change', { bubbles: true });
+      input?.dispatchEvent(event);
+    });
+  });
+})();
+</script>
+{% endblock %}

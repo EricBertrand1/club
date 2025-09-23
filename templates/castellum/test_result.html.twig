@@ -1,0 +1,61 @@
+{% extends 'base.html.twig' %}
+{% block title %}Castellum — Résultats{% endblock %}
+
+{% block body %}
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  .test-root { --scale: 2; font-size: calc(1rem * var(--scale)); line-height: 1.4; }
+  .vh-panel { display: flex; flex-direction: column; height: 100vh; }
+  .test-header { flex: 0 0 auto; }
+  .test-main { flex: 1 1 auto; overflow: auto; -ms-overflow-style: none; scrollbar-width: none; }
+  .test-main::-webkit-scrollbar { display: none; }
+  .test-card { max-width: 1100px; margin: 0 auto; }
+  .test-root .btn { font-size: 1em; padding: 0.6em 1em; }
+  .q-thumb { max-height: 22vh; object-fit: contain; }
+</style>
+
+<div class="vh-panel test-root container-fluid py-3 py-md-4">
+  <div class="test-header d-flex justify-content-between align-items-center mb-3 mb-md-4">
+    <h1 class="h3 m-0">Résultats</h1>
+    <a class="btn btn-outline-secondary" href="{{ path('castellum_index') }}">Quitter</a>
+  </div>
+
+  <div class="test-main">
+    <div class="test-card">
+      <div class="alert alert-info">
+        Score : <strong>{{ score }}</strong> / {{ total }}
+      </div>
+
+      <div class="list-group">
+        {% for pos, row in byPos %}
+          {% set q = row.q %}
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between">
+              <div><strong>#{{ pos }}</strong> — {{ q.subject ?: q.subcategory.name }} ({{ q.levelQuestion|capitalize }})</div>
+              <span class="badge {{ row.ok ? 'bg-success' : 'bg-danger' }}">{{ row.ok ? 'Juste' : 'Faux' }}</span>
+            </div>
+            <div class="mt-2" style="white-space:pre-wrap;">{{ q.questionText }}</div>
+            {% if q.questionImage %}
+              <div class="mt-2">
+                <img src="{{ q.questionImage starts with 'http' ? q.questionImage : asset(q.questionImage) }}"
+                     class="q-thumb img-fluid rounded border">
+              </div>
+            {% endif %}
+            <div class="mt-2"><em>Votre réponse :</em> {{ row.user }}</div>
+            <div><em>Réponse attendue :</em> {{ q.answerText }}</div>
+            {% if q.explanation %}
+              <div class="mt-2 text-muted" style="white-space:pre-wrap;">{{ q.explanation }}</div>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="list-group-item text-muted">Aucune réponse enregistrée.</div>
+        {% endfor %}
+      </div>
+
+      <div class="d-flex justify-content-end mt-4">
+        <a class="btn btn-primary" href="{{ path('castellum_index') }}">Recommencer un test</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

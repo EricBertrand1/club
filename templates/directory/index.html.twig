@@ -1,0 +1,153 @@
+{% extends 'base.html.twig' %}
+{% block title %}Annuaire{% endblock %}
+
+{% block body %}
+
+{# ✨ Barre de recherche par description #}
+<form method="get" class="mb-3 d-flex gap-2 align-items-end">
+  <div class="flex-grow-1">
+    <label class="form-label">Recherche par description</label>
+    <input type="text" name="desc" class="form-control" value="{{ f.desc }}" placeholder="Mots clés à chercher dans la description">
+  </div>
+  <div>
+    <button class="btn btn-primary">Recherche</button>
+  </div>
+
+  {# On conserve les autres filtres en GET #}
+  <input type="hidden" name="cat"  value="{{ f.cat }}">
+  <input type="hidden" name="type" value="{{ f.type }}">
+  <input type="hidden" name="q"    value="{{ f.q }}">
+  <input type="hidden" name="min"  value="{{ f.min }}">
+</form>
+
+<div class="container py-5">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="page-title m-0">Annuaire</h1>
+    <div class="d-flex gap-2">
+      <a href="{{ path('annuaire_new') }}" class="btn btn-primary">Ajouter une adresse</a>
+      <a href="{{ path('app_home') }}" class="btn btn-outline-secondary" id="quit-btn">Quitter</a>
+    </div>
+  </div>
+
+  {# Filtres haut (listes déroulantes) #}
+  <div class="row g-2 mb-3">
+    <div class="col-12 col-md-4">
+      <label class="form-label">Catégorie</label>
+      <select id="filter-category" class="form-select">
+        <option value="">(Toutes)</option>
+        {% for c in categories %}
+          <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label">Type</label>
+      <select id="filter-type" class="form-select">
+        <option value="">(Tous)</option>
+        <option value="Web">Web</option>
+        <option value="Localisé">Localisé</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-striped align-middle" id="dir-table">
+      <thead class="table-light">
+        <tr>
+          <th>Catégorie<br><input class="form-control form-control-sm col-filter" data-col="0" placeholder="Filtrer..."></th>
+          <th>Type<br><input class="form-control form-control-sm col-filter" data-col="1" placeholder="Filtrer..."></th>
+          <th>Désignation<br><input class="form-control form-control-sm col-filter" data-col="2" placeholder="Filtrer..."></th>
+          <th>Nom<br><input class="form-control form-control-sm col-filter" data-col="3" placeholder="Filtrer..."></th>
+          <th>Prénom<br><input class="form-control form-control-sm col-filter" data-col="4" placeholder="Filtrer..."></th>
+          <th>Adresse<br><input class="form-control form-control-sm col-filter" data-col="5" placeholder="Filtrer..."></th>
+          <th>Code postal<br><input class="form-control form-control-sm col-filter" data-col="6" placeholder="Filtrer..."></th>
+          <th>Commune<br><input class="form-control form-control-sm col-filter" data-col="7" placeholder="Filtrer..."></th>
+          <th>Téléphone<br><input class="form-control form-control-sm col-filter" data-col="8" placeholder="Filtrer..."></th>
+          <th>Email<br><input class="form-control form-control-sm col-filter" data-col="9" placeholder="Filtrer..."></th>
+          <th>Site web<br><input class="form-control form-control-sm col-filter" data-col="10" placeholder="Filtrer..."></th>
+          <th>Note / 5<br><input class="form-control form-control-sm col-filter" data-col="11" placeholder="Filtrer..."></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr class="clickable-row" data-href="{{ path('annuaire_edit', {id: e.id}) }}" style="cursor:pointer;">
+            <td>{{ e.category }}</td>
+            <td>{{ e.type }}</td>
+            <td>{{ e.designation }}</td>
+            <td>{{ e.lastName }}</td>
+            <td>{{ e.firstName }}</td>
+            <td>{{ e.address }}</td>
+            <td>{{ e.postalCode }}</td>
+            <td>{{ e.city }}</td>
+            <td>{{ e.phone }}</td>
+            <td>
+            {% if e.email %}
+                <a href="mailto:{{ e.email }}" onclick="event.stopPropagation();">{{ e.email }}</a>
+            {% endif %}
+            </td>
+            <td>
+            {% if e.website %}
+                <a href="{{ e.website }}" target="_blank" rel="noopener" onclick="event.stopPropagation();">Site</a>
+            {% endif %}
+            </td>
+            <td>{{ e.rating }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="12" class="text-center text-muted py-4">Aucune entrée.</td></tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+  </div>
+</div>
+
+<script>
+
+(function(){
+  const rows = document.querySelectorAll('#dir-table tbody tr.clickable-row');
+  rows.forEach(tr => {
+    tr.addEventListener('click', (e) => {
+      const tag = e.target.tagName.toLowerCase();
+      if (['a','button','input','select','textarea','label'].includes(tag)) return; // ne pas intercepter ces clics
+      const url = tr.getAttribute('data-href');
+      if (url) window.location.href = url;
+    });
+  });
+})();
+
+// Filtres par listes déroulantes (haut)
+const selCat = document.getElementById('filter-category');
+const selType = document.getElementById('filter-type');
+const table = document.getElementById('dir-table');
+const rows  = Array.from(table.querySelectorAll('tbody tr'));
+
+function applyFilters() {
+  const cat = (selCat.value || '').toLowerCase();
+  const typ = (selType.value || '').toLowerCase();
+
+  rows.forEach(tr => {
+    const c = (tr.cells[0]?.innerText || '').toLowerCase();
+    const t = (tr.cells[1]?.innerText || '').toLowerCase();
+    let show = true;
+    if (cat && c !== cat) show = false;
+    if (typ && t !== typ) show = false;
+
+    // filtres colonne par colonne
+    document.querySelectorAll('.col-filter').forEach(inp => {
+      const col = parseInt(inp.dataset.col,10);
+      const val = (inp.value || '').toLowerCase();
+      if (val) {
+        const cellText = (tr.cells[col]?.innerText || '').toLowerCase();
+        if (!cellText.includes(val)) show = false;
+      }
+    });
+
+    tr.style.display = show ? '' : 'none';
+  });
+}
+selCat.addEventListener('change', applyFilters);
+selType.addEventListener('change', applyFilters);
+document.querySelectorAll('.col-filter').forEach(i => i.addEventListener('input', applyFilters));
+</script>
+{% endblock %}

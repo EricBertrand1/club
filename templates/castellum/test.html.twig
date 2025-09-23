@@ -1,0 +1,37 @@
+{% extends 'base.html.twig' %}
+{% block title %}Castellum — Test{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="page-title m-0">Test</h1>
+    <a class="btn btn-outline-secondary" href="{{ path('castellum_index') }}">Retour config</a>
+  </div>
+
+  {% if config is not null %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <div><strong>Nombre de questions :</strong> {{ config.count }}</div>
+        <div><strong>Niveau :</strong> {{ config.level|capitalize }}</div>
+        <div class="mt-2"><strong>Domaines sélectionnés :</strong></div>
+        <ul class="mb-0">
+          {% for code, item in config.selected %}
+            <li>
+              <strong>{{ code }}</strong> — {{ item.label }}
+              {% if item.subs is not empty %}
+                : {{ item.subs|join(', ') }}
+              {% endif %}
+            </li>
+          {% else %}
+            <li class="text-muted">Aucune catégorie sélectionnée.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-warning">Aucune configuration trouvée en session.</div>
+  {% endif %}
+
+  <div class="alert alert-info">Ici s’affichera le contenu du test (à implémenter).</div>
+</div>
+{% endblock %}

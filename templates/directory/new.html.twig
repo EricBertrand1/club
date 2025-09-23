@@ -1,0 +1,70 @@
+{% extends 'base.html.twig' %}
+{% block title %}Nouvelle adresse — Annuaire{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="page-title m-0">Ajouter une adresse</h1>
+    <div class="d-flex gap-2">
+      {# ← adapte le nom de route si chez toi c'est directory_index #}
+      <a href="{{ path('annuaire_index') }}" class="btn btn-outline-secondary" id="quit-btn">Quitter</a>
+      <button type="submit" form="entry-form" class="btn btn-primary">Enregistrer et quitter</button>
+    </div>
+  </div>
+
+  {# Flashs spécifiques à l’annuaire #}
+  {% for msg in app.flashes('annuaire_success') %}
+    <div class="alert alert-success">{{ msg }}</div>
+  {% endfor %}
+
+  {# ----- FORMULAIRE ----- #}
+  {# ← adapte le nom de route si chez toi c'est directory_new #}
+  {{ form_start(form, { action: path('annuaire_new'), attr: { id: 'entry-form' } }) }}
+
+    <div class="row g-3">
+      <div class="col-md-4">{{ form_row(form.category) }}</div>
+      <div class="col-md-4">{{ form_row(form.type) }}</div>
+      <div class="col-md-4">{{ form_row(form.rating) }}</div>
+
+      <div class="col-md-6">{{ form_row(form.designation) }}</div>
+      <div class="col-md-3">{{ form_row(form.lastName) }}</div>
+      <div class="col-md-3">{{ form_row(form.firstName) }}</div>
+
+      <div class="col-12">{{ form_row(form.address) }}</div>
+      <div class="col-md-3">{{ form_row(form.postalCode) }}</div>
+      <div class="col-md-5">{{ form_row(form.city) }}</div>
+      <div class="col-md-4">{{ form_row(form.phone) }}</div>
+
+      <div class="col-md-6">{{ form_row(form.email) }}</div>
+      <div class="col-md-6">{{ form_row(form.website) }}</div>
+
+      {# ✅ DESCRIPTION DOIT ÊTRE DANS LE FORM POUR ÊTRE ENVOYÉE #}
+      <div class="col-12">
+        {{ form_row(form.description) }}
+      </div>
+    </div>
+
+  {{ form_end(form) }}
+</div>
+
+<script>
+// Confirmation si on a commencé à remplir puis clique "Quitter"
+(function(){
+  const form = document.getElementById('entry-form');
+  const quit = document.getElementById('quit-btn');
+  let isDirty = false;
+  if (form) {
+    form.addEventListener('input', () => { isDirty = true; });
+    form.addEventListener('change', () => { isDirty = true; });
+  }
+  if (quit) {
+    quit.addEventListener('click', (e) => {
+      if (isDirty && !confirm("Êtes-vous sûr de vouloir quitter sans enregistrer ?")) {
+        e.preventDefault();
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'base.html.twig' %}
+{% block title %}Coaching — Paramètres{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+
+  <form id="settings-form" method="post" action="{{ path('coaching_settings') }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('coaching_settings') }}">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="page-title m-0">Paramètres Coaching</h1>
+
+      <div class="d-flex align-items-center gap-2">
+        {# Enregistrer (soumet le formulaire) #}
+        <button type="submit" class="btn btn-primary" id="save-btn">
+          Enregistrer
+        </button>
+
+        {# Quitter (retour à la page Coaching, confirmation si non enregistré) #}
+        <button type="button"
+                class="btn btn-outline-secondary"
+                id="quit-btn"
+                data-target-url="{{ path('coaching_index') }}">
+          Quitter
+        </button>
+      </div>
+    </div>
+
+    {% for key, title in sections %}
+      <div class="card mb-4">
+        <div class="card-header">{{ title }}</div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for t in grouped[key] %}
+              <div class="col-12 col-md-6">
+                <label class="form-label">Thème {{ t.position }}</label>
+                <input type="text"
+                       name="label[{{ t.id }}]"
+                       value="{{ t.label }}"
+                       class="form-control track-dirty"
+                       placeholder="(vide)">
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label">Coefficient</label>
+                <select name="coef[{{ t.id }}]"
+                        class="form-select coeff-select track-dirty"
+                        aria-label="Coefficient">
+                  {% for v in [-3,-2,-1,0,1,2,3] %}
+                    <option value="{{ v }}" {% if v == t.coefficient %}selected{% endif %}>{{ v }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </form>
+</div>
+
+<script>
+// Couleur des coefficients (rouge si négatif, vert si positif)
+function colorize(el) {
+  const v = parseInt(el.value, 10);
+  el.classList.remove('bg-success','bg-danger','text-white');
+  if (v > 0) el.classList.add('bg-success','text-white');
+  if (v < 0) el.classList.add('bg-danger','text-white');
+}
+document.querySelectorAll('.coeff-select').forEach(s => {
+  colorize(s);
+  s.addEventListener('change', () => colorize(s));
+});
+
+// Détection des changements non enregistrés
+let isDirty = false;
+function markDirty(){ isDirty = true; }
+document.querySelectorAll('.track-dirty').forEach(el => {
+  el.addEventListener('input', markDirty);   // pour les inputs text
+  el.addEventListener('change', markDirty);  // pour les selects
+});
+
+// Si on enregistre, on considère que c'est “propre”
+document.getElementById('save-btn').addEventListener('click', () => { isDirty = false; });
+
+// Bouton Quitter : confirmation seulement s'il y a des changements
+document.getElementById('quit-btn').addEventListener('click', (e) => {
+  const url = e.currentTarget.getAttribute('data-target-url') || '{{ path("coaching_index") }}';
+  if (!isDirty || confirm("Êtes-vous sûr de vouloir quitter sans enregistrer ?")) {
+    window.location.href = url;
+  }
+});
+</script>
+{% endblock %}

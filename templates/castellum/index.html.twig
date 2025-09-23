@@ -1,0 +1,319 @@
+{% extends 'base.html.twig' %}
+{% block title %}Castellum — Configurer un test{% endblock %}
+
+{% block body %}
+
+<style>
+  .cat-row { cursor: pointer; user-select: none; }
+  .cat-row:hover { background: rgba(0,0,0,.03); }
+</style>
+
+<div class="container py-5">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="page-title m-0">Castellum</h1>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="{{ path('app_home') }}">Quitter</a>
+      <button type="submit" form="castellum-form" class="btn btn-primary">Lancer le test</button>
+    </div>
+  </div>
+
+  {# Flashs #}
+  {% for msg in app.flashes('success') %}<div class="alert alert-success">{{ msg }}</div>{% endfor %}
+  {% for msg in app.flashes('warning') %}<div class="alert alert-warning">{{ msg }}</div>{% endfor %}
+  {% for msg in app.flashes('danger') %}<div class="alert alert-danger">{{ msg }}</div>{% endfor %}
+
+  <form id="castellum-form" method="post" action="{{ path('castellum_index') }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('castellum_start') }}">
+
+    <div class="row g-3 mb-4">
+      <div class="col-sm-4">
+        <label class="form-label">Nombre de questions</label>
+        <select name="count" class="form-select">
+          {% for n in options %}
+            <option value="{{ n }}" {% if n == prefsCount %}selected{% endif %}>{{ n }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-4">
+        <label class="form-label">Niveau</label>
+        <select name="level" class="form-select">
+          {% for lvl in levels %}
+            <option value="{{ lvl }}">{{ lvl|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="mb-2">
+      <h2 class="h5">Choisissez les catégories et/ou sous-catégories</h2>
+      <div class="text-muted small">Cochez une catégorie pour tout sélectionner ; ouvrez-la pour gérer ses sous-catégories et questions.</div>
+    </div>
+
+    <div class="accordion" id="cats-accordion">
+      {% for code, label in labels %}
+        {% set catId = 'cat-' ~ code %}
+        <div class="accordion-item mb-2" id="{{ catId }}">
+          <h2 class="accordion-header" id="head-{{ code }}">
+            <div class="cat-row d-flex align-items-center justify-content-between px-3 py-2"
+                data-target="#collapse-{{ code }}"
+                role="button" tabindex="0"
+                aria-controls="collapse-{{ code }}" aria-expanded="false">
+              <div class="form-check m-0">
+                <input class="form-check-input me-2 cat-checkbox" type="checkbox"
+                      id="{{ catId }}-chk" name="cats[]" value="{{ code }}"
+                      {% if code in prefsCats %}checked{% endif %}>
+                <label class="form-check-label m-0" for="{{ catId }}-chk">
+                  <strong>{{ code }}</strong> — {{ label }}
+                </label>
+              </div>
+              {# rien à droite : toute la ligne (sauf .form-check) est cliquable #}
+            </div>
+          </h2>
+
+
+
+          <div id="collapse-{{ code }}" class="accordion-collapse collapse" data-bs-parent="#cats-accordion">
+            <div class="accordion-body">
+
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-sm btn-outline-secondary action-all" data-act="check" data-cat="{{ code }}">Tout cocher</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary action-all" data-act="uncheck" data-cat="{{ code }}">Tout décocher</button>
+                </div>
+
+                {# Ajout sous-catégorie via fetch (pas de nested form) #}
+                <div class="input-group input-group-sm" style="max-width: 420px;">
+                  <input type="text" class="form-control sub-new-name" data-cat="{{ code }}" placeholder="Nouvelle sous-catégorie…">
+                  <button type="button"
+                          class="btn btn-success sub-new-btn"
+                          data-cat="{{ code }}"
+                          data-url="{{ path('castellum_sub_new') }}"
+                          data-token="{{ csrf_token('castellum_sub_new') }}">
+                    Ajouter
+                  </button>
+                </div>
+              </div>
+
+              {% set list = subcats[code] ?? [] %}
+              {% if list is empty %}
+                <div class="text-muted fst-italic">Aucune sous-catégorie.</div>
+              {% else %}
+                <div class="row row-cols-1 row-cols-md-2 g-2">
+                  {# ✅ ICI on est bien DANS la boucle, donc s existe #}
+                  {% for s in list %}
+                    <div class="col">
+                      <div class="d-flex align-items-center justify-content-between">
+                        <div class="form-check">
+                            <input class="form-check-input sub-checkbox" type="checkbox"
+                            id="sub-{{ code }}-{{ s.id }}"
+                            name="subs[{{ code }}][]" value="{{ s.id }}"
+                            data-cat="{{ code }}"
+                            {% if s.id in prefsSubIds %}checked{% endif %}>
+                          <label class="form-check-label" for="sub-{{ code }}-{{ s.id }}">{{ s.name }}</label>
+                        </div>
+                        <div class="d-flex gap-2">
+                          <a class="btn btn-sm btn-outline-primary" href="{{ path('castellum_questions', {id: s.id}) }}">Éditer Q/R</a>
+                          <button type="button"
+                                  class="btn btn-sm btn-outline-danger sub-del"
+                                  data-url="{{ path('castellum_sub_delete', {id: s.id}) }}"
+                                  data-token="{{ csrf_token('castellum_sub_delete_' ~ s.id) }}"
+                                  data-name="{{ s.name }}">
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </form>
+</div>
+
+<script>
+const CASTELLUM_PREFS_URL = "{{ path('castellum_prefs_save') }}";
+const CASTELLUM_PREFS_CSRF = "{{ csrf_token('castellum_prefs') }}";
+const USER_LOGGED_IN = {{ app.user ? 'true' : 'false' }};
+
+// ===== Helpers DOM existants =====
+function subsOf(code){ return Array.from(document.querySelectorAll('.sub-checkbox[data-cat="'+code+'"]')); }
+function parentOf(code){ return document.getElementById('cat-'+code+'-chk'); }
+function updateParentState(code){
+  const subs = subsOf(code);
+  if (!subs.length) return;
+  const parent = parentOf(code);
+  const checked = subs.filter(s => s.checked).length;
+  parent.indeterminate = checked > 0 && checked < subs.length;
+  parent.checked = checked === subs.length;
+}
+
+// ===== Collecte préférences depuis le DOM =====
+function collectPrefs(){
+  const cats = Array.from(document.querySelectorAll('.cat-checkbox:checked')).map(el => el.value);
+  const subsFlat = Array.from(document.querySelectorAll('.sub-checkbox:checked')).map(el => parseInt(el.value,10));
+  const countSel = document.querySelector('select[name="count"]');
+  const levelSel = document.querySelector('select[name="level"]');
+  const count = parseInt(countSel?.value || '20', 10);
+  const level = (levelSel?.value || 'base');
+  return { cats, subsFlat, count, level };
+}
+
+// ===== UI: petit indicateur d'état =====
+let saveTimer = null;
+let saving = false;
+const toast = (() => {
+  const box = document.createElement('div');
+  box.id = 'prefs-toast';
+  box.className = 'position-fixed bottom-0 end-0 m-3';
+  box.style.zIndex = 1080;
+  box.innerHTML = `
+    <div id="prefs-toast-inner" class="alert alert-secondary py-1 px-2 small mb-0 d-none"></div>
+  `;
+  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
+  function show(cls, text){
+    const inner = document.getElementById('prefs-toast-inner');
+    if (!inner) return;
+    inner.className = 'alert py-1 px-2 small mb-0 ' + cls;
+    inner.textContent = text;
+    inner.classList.remove('d-none');
+    setTimeout(() => inner.classList.add('d-none'), 1200);
+  }
+  return {
+    saving: () => show('alert-info', 'Enregistrement…'),
+    saved:  () => show('alert-success', 'Préférences enregistrées ✓'),
+    auth:   () => show('alert-warning', 'Connectez-vous pour sauvegarder vos préférences.'),
+    error:  () => show('alert-danger', 'Erreur lors de l’enregistrement.'),
+  };
+})();
+
+// ===== Envoi AJAX (debounce) =====
+function triggerSave(){
+  if (!USER_LOGGED_IN) { toast.auth(); return; }
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(savePrefs, 300);
+}
+
+async function savePrefs(){
+  const { cats, subsFlat, count, level } = collectPrefs();
+  try {
+    saving = true;
+    toast.saving();
+    const params = new URLSearchParams();
+    params.append('_token', CASTELLUM_PREFS_CSRF);
+    params.append('count', String(count));
+    params.append('level', String(level));
+    cats.forEach(c => params.append('cats[]', c));
+    subsFlat.forEach(id => params.append('subsFlat[]', String(id)));
+
+    const resp = await fetch(CASTELLUM_PREFS_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': CASTELLUM_PREFS_CSRF},
+      body: params
+    });
+
+    if (resp.status === 401) { toast.auth(); return; }
+    if (!resp.ok) { toast.error(); return; }
+    const data = await resp.json();
+    if (data.ok) toast.saved(); else toast.error();
+  } catch(e){
+    console.error(e);
+    toast.error();
+  } finally {
+    saving = false;
+  }
+}
+
+// ===== Listeners =====
+
+// Parent -> enfants
+document.querySelectorAll('.cat-checkbox').forEach(cat => {
+  cat.addEventListener('change', () => {
+    const code = cat.id.replace('cat-','').replace('-chk','');
+    subsOf(code).forEach(s => { s.checked = cat.checked; });
+    cat.indeterminate = false;
+    updateParentState(code);
+    triggerSave();
+  });
+});
+
+// Enfant -> parent
+document.querySelectorAll('.sub-checkbox').forEach(sub => {
+  sub.addEventListener('change', () => {
+    const code = sub.getAttribute('data-cat');
+    updateParentState(code);
+    triggerSave();
+  });
+});
+
+// Tout cocher / décocher
+document.querySelectorAll('.action-all').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const code = btn.getAttribute('data-cat');
+    const doCheck = btn.getAttribute('data-act') === 'check';
+    subsOf(code).forEach(s => { s.checked = doCheck; });
+    const parent = parentOf(code);
+    if (parent) { parent.checked = doCheck; parent.indeterminate = false; }
+    triggerSave();
+  });
+});
+
+// Count / Level
+document.querySelector('select[name="count"]')?.addEventListener('change', triggerSave);
+document.querySelector('select[name="level"]')?.addEventListener('change', triggerSave);
+
+// Init états visuels
+document.querySelectorAll('.cat-checkbox').forEach(cat => {
+  const code = cat.id.replace('cat-','').replace('-chk','');
+  updateParentState(code);
+});
+
+
+// --- Toggle collapse en cliquant la ligne.
+//     - Clic sur la case = laisse cocher/décocher.
+//     - Clic sur le label = n’alterne PAS la checkbox, ouvre/ferme seulement.
+document.querySelectorAll('.cat-row').forEach(row => {
+  const targetSel = row.getAttribute('data-target');
+  const target = document.querySelector(targetSel);
+
+  function toggle() {
+    if (!target) return;
+    if (window.bootstrap && bootstrap.Collapse) {
+      const c = bootstrap.Collapse.getOrCreateInstance(target);
+      c.toggle();
+    } else {
+      target.classList.toggle('show');
+    }
+    const expanded = row.getAttribute('aria-expanded') === 'true';
+    row.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+  }
+
+  row.addEventListener('click', (e) => {
+    // 1) Clic sur la CASE -> ne rien faire ici
+    if (e.target.closest('.form-check-input')) return;
+
+    // 2) Clic sur le LABEL -> empêcher le toggle de la checkbox
+    if (e.target.closest('.form-check-label')) {
+      e.preventDefault(); // stoppe le "for" du label
+    }
+
+    // 3) Le reste de la ligne -> ouvrir/fermer
+    toggle();
+  });
+
+  // Accessibilité clavier (Entrée/Espace) sur la ligne
+  row.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggle();
+    }
+  });
+});
+
+
+</script>
+{% endblock %}
