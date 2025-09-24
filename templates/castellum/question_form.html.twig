@@ -3,42 +3,164 @@
 
 {% block body %}
 <div class="container py-5">
+  <!-- Barre titre + actions -->
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 m-0">{{ mode == 'new' ? 'Nouvelle question' : 'Éditer la question' }}</h1>
-    <a class="btn btn-outline-secondary" href="{{ path('castellum_questions', { id: subcategory.id }) }}">Quitter</a>
+    <div>
+      <h1 class="h4 m-0">{{ mode == 'new' ? 'Nouvelle question' : 'Éditer la question' }}</h1>
+      {% if form.vars.data and form.vars.data.id %}
+        <div class="text-muted small">ID #{{ form.vars.data.id }}</div>
+      {% endif %}
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      {% if mode == 'edit' and form.vars.data and form.vars.data.id %}
+        <form method="post"
+              action="{{ path('castellum_question_duplicate', { id: form.vars.data.id }) }}"
+              class="d-inline">
+          <input type="hidden" name="_token" value="{{ csrf_token('castellum_question_duplicate_' ~ form.vars.data.id) }}">
+          <button class="btn btn-outline-secondary" type="submit">Dupliquer</button>
+        </form>
+      {% endif %}
+      <a class="btn btn-outline-secondary" href="{{ path('castellum_questions', { id: subcategory.id }) }}">Quitter</a>
+      <button class="btn btn-primary" type="submit" form="question-form">Enregistrer</button>
+    </div>
   </div>
 
-  {{ form_start(form) }}
+  {# Flashs #}
+  {% for label, messages in app.flashes %}
+    {% for message in messages %}
+      <div class="alert alert-{{ label == 'success' ? 'success' : (label == 'danger' ? 'danger' : 'info') }}">{{ message }}</div>
+    {% endfor %}
+  {% endfor %}
+
+  {{ form_start(form, { attr: { id: 'question-form' } }) }}
   {{ form_errors(form) }}
 
   <div class="row g-3">
-    <div class="col-md-6">{{ form_row(form.subcategory) }}</div>
+
+    {# Ligne 1 : sous-catégorie / niveau / type / Dernière modif (lecture seule) #}
+    <div class="col-md-4">{{ form_row(form.subcategory) }}</div>
     <div class="col-md-3">{{ form_row(form.levelQuestion) }}</div>
     <div class="col-md-3">{{ form_row(form.questionType) }}</div>
 
+    <div class="col-md-2">
+      <label class="form-label">Dernière modif.</label>
+      <input type="text"
+             class="form-control"
+             value="{{ form.vars.data.updatedAt ? form.vars.data.updatedAt|date('d/m/Y H:i') : '—' }}"
+             disabled>
+      <div class="form-text text-muted">🔒 Mis à jour automatiquement à l’enregistrement</div>
+    </div>
+
+    {# Ligne 2 : sujet / durée / coordonnées X Y #}
     <div class="col-md-6">{{ form_row(form.subject) }}</div>
-    <div class="col-md-6">
-    {{ form_row(form.questionImage) }}
-    {% if form.vars.data and form.vars.data.questionImage %}
-        <div class="mt-2">
-        <div class="text-muted small mb-1">Image actuelle :</div>
-        <img src="{{ asset(form.vars.data.questionImage) }}" alt="" class="img-fluid rounded border" style="max-height:200px;">
-        </div>
-    {% endif %}
-    </div>
+    <div class="col-md-3">{{ form_row(form.durationSeconds) }}</div>
+    <div class="col-md-1">{{ form_row(form.coordX) }}</div>
+    <div class="col-md-2">{{ form_row(form.coordY) }}</div>
 
-    <div class="col-md-6">
-    {{ form_row(form.questionImageFile) }}
-    {% if form.vars.data and form.vars.data.questionImage %}
-        <div class="mt-2">
-        {{ form_row(form.removeImage) }}
-        </div>
-    {% endif %}
-    </div>
+    {# Ligne 3 : formation (chapitre, paragraphe) #}
+    <div class="col-md-6">{{ form_row(form.formationChapter) }}</div>
+    <div class="col-md-6">{{ form_row(form.formationParagraph) }}</div>
 
+    {# Ligne 4 : textes principaux #}
     <div class="col-12">{{ form_row(form.questionText) }}</div>
     <div class="col-12">{{ form_row(form.answerText) }}</div>
     <div class="col-12">{{ form_row(form.explanation) }}</div>
+
+    {# Ligne 5 : image de la question (champ texte + aperçu + upload + remove) #}
+    <div class="col-md-6">
+      {{ form_row(form.questionImage) }}
+      {% if form.vars.data and form.vars.data.questionImage %}
+        <div class="mt-2">
+          <div class="text-muted small mb-1">Image actuelle :</div>
+          <img src="{{ asset(form.vars.data.questionImage) }}" alt="" class="img-fluid rounded border" style="max-height:220px;">
+        </div>
+      {% endif %}
+    </div>
+    <div class="col-md-6">
+      {{ form_row(form.questionImageFile) }}
+      {% if form.vars.data and form.vars.data.questionImage %}
+        <div class="mt-2">{{ form_row(form.removeImage) }}</div>
+      {% endif %}
+    </div>
+
+    {# Ligne 6 : audio de la question (aperçu + upload) #}
+    <div class="col-md-6">
+      <label class="form-label d-block">Aperçu audio (si présent)</label>
+      {% if form.vars.data and form.vars.data.questionAudio %}
+        <audio controls style="width:100%;">
+          <source src="{{ asset(form.vars.data.questionAudio) }}">
+          Votre navigateur ne supporte pas la balise audio.
+        </audio>
+      {% else %}
+        <div class="text-muted small">Aucun fichier audio associé.</div>
+      {% endif %}
+    </div>
+    <div class="col-md-6">
+      {{ form_row(form.questionAudioFile) }}
+      <div class="form-text">Téléverser un nouveau fichier remplace l’ancien.</div>
+    </div>
+
+    {# Ligne 7 : QCM — Textes 1..10 #}
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">Réponses QCM — Textes</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">{{ form_row(form.qcmText1) }}</div>
+            <div class="col-md-6">{{ form_row(form.qcmText2) }}</div>
+            <div class="col-md-6">{{ form_row(form.qcmText3) }}</div>
+            <div class="col-md-6">{{ form_row(form.qcmText4) }}</div>
+            <div class="col-md-6">{{ form_row(form.qcmText5) }}</div>
+            <div class="col-md-6">{{ form_row(form.qcmText6) }}</div>
+            <div class="col-md-6">{{ form_row(form.qcmText7) }}</div>
+            <div class="col-md-6">{{ form_row(form.qcmText8) }}</div>
+            <div class="col-md-6">{{ form_row(form.qcmText9) }}</div>
+            <div class="col-md-6">{{ form_row(form.qcmText10) }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Ligne 8 : QCM — Images 1..10 (aperçus si existants + champs upload) #}
+    <div class="col-12">
+      <div class="card mt-3">
+        <div class="card-header">Réponses QCM — Images</div>
+        <div class="card-body">
+          <div class="row g-4">
+            {% for i in 1..10 %}
+              <div class="col-md-6">
+                <div class="border rounded p-2 h-100">
+                  <div class="mb-2">
+                    <strong>QCM image {{ i }}</strong>
+                  </div>
+                  <div class="mb-2">
+                    {% set getter = attribute(form.vars.data, 'qcmImage' ~ i) is defined ? 'qcmImage' ~ i : null %}
+                    {% set current = getter ? attribute(form.vars.data, getter) : null %}
+                    {% if current %}
+                      <div class="text-muted small mb-1">Image actuelle :</div>
+                      <img src="{{ asset(current) }}" alt="" class="img-fluid rounded border" style="max-height:160px;">
+                    {% else %}
+                      <div class="text-muted small">Aucune image actuelle.</div>
+                    {% endif %}
+                  </div>
+                  <div>
+                    {{ form_row(attribute(form, 'qcmImageFile' ~ i)) }}
+                    <div class="form-text">Téléverser un fichier remplace l’image actuelle.</div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Ligne 9 : validations #}
+    <div class="col-md-4">{{ form_row(form.validationSignataire1) }}</div>
+    <div class="col-md-4">{{ form_row(form.validationSignataire2) }}</div>
+    <div class="col-md-4">{{ form_row(form.validationSignataire3) }}</div>
+
   </div>
 
   <div class="d-flex justify-content-end gap-2 mt-4">

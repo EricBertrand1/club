@@ -4,11 +4,28 @@ namespace App\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use App\Entity\CoachingTheme;
+use App\Entity\Rubrique;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'user')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    public function __construct()
+    {
+        // ... ce que tu as déjà
+        $this->themes = new ArrayCollection();
+        $this->rubriques = new ArrayCollection();
+    }
+
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: CoachingTheme::class, orphanRemoval: true, cascade: ['persist'])]
+    private Collection $themes;
+
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Rubrique::class, orphanRemoval: true, cascade: ['persist'])]
+    private Collection $rubriques;
+
     #[ORM\Id, ORM\GeneratedValue, ORM\Column(type: 'integer')]
     private ?int $id = null;
 
@@ -39,4 +56,55 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setPassword(string $p): self { $this->password = $p; return $this; }
 
     public function eraseCredentials(): void {}
+
+    /** @return Collection<int, CoachingTheme> */
+    public function getThemes(): Collection
+    {
+        return $this->themes;
+    }
+
+    public function addTheme(CoachingTheme $theme): self
+    {
+        if (!$this->themes->contains($theme)) {
+            $this->themes->add($theme);
+            $theme->setUser($this);
+        }
+        return $this;
+    }
+
+    public function removeTheme(CoachingTheme $theme): self
+    {
+        if ($this->themes->removeElement($theme)) {
+            if ($theme->getUser() === $this) {
+                $theme->setUser(null);
+            }
+        }
+        return $this;
+    }
+
+    /** @return Collection<int, Rubrique> */
+    public function getRubriques(): Collection
+    {
+        return $this->rubriques;
+    }
+
+    public function addRubrique(Rubrique $rubrique): self
+    {
+        if (!$this->rubriques->contains($rubrique)) {
+            $this->rubriques->add($rubrique);
+            $rubrique->setUser($this);
+        }
+        return $this;
+    }
+
+    public function removeRubrique(Rubrique $rubrique): self
+    {
+        if ($this->rubriques->removeElement($rubrique)) {
+            if ($rubrique->getUser() === $this) {
+                $rubrique->setUser(null);
+            }
+        }
+        return $this;
+    }
+
 }

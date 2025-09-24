@@ -37,12 +37,24 @@
             <td class="text-truncate" style="max-width: 420px;">{{ q.questionText }}</td>
             <td>{{ q.updatedAt|date('d/m/Y H:i') }}</td>
             <td class="text-end">
-            <a class="btn btn-sm btn-outline-primary" href="{{ path('castellum_question_edit', { id: q.id }) }}">Éditer</a>
-            <form method="post" action="{{ path('castellum_question_delete', { id: q.id }) }}" class="d-inline"
+              <a class="btn btn-sm btn-outline-primary" href="{{ path('castellum_question_edit', { id: q.id }) }}">Éditer</a>
+
+              {# Dupliquer #}
+              <form method="post"
+                    action="{{ path('castellum_question_duplicate', { id: q.id }) }}"
+                    class="d-inline">
+                <input type="hidden" name="_token" value="{{ csrf_token('castellum_question_duplicate_' ~ q.id) }}">
+                <button class="btn btn-sm btn-outline-secondary">Dupliquer</button>
+              </form>
+
+              {# Supprimer #}
+              <form method="post"
+                    action="{{ path('castellum_question_delete', { id: q.id }) }}"
+                    class="d-inline"
                     onsubmit="return confirm('Supprimer cette question ?');">
                 <input type="hidden" name="_token" value="{{ csrf_token('castellum_question_delete_' ~ q.id) }}">
                 <button class="btn btn-sm btn-outline-danger">Supprimer</button>
-            </form>
+              </form>
             </td>
           </tr>
         {% else %}
