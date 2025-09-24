@@ -50,14 +50,17 @@ class CastellumQuestionType extends AbstractType
             ->add('questionText', TextareaType::class, [
                 'required' => false,
                 'label' => 'Énoncé de la question',
+                'attr' => ['rows' => 6],
             ])
             ->add('answerText', TextareaType::class, [
                 'required' => false,
                 'label' => 'Réponse attendue',
+                'attr' => ['rows' => 6],
             ])
             ->add('explanation', TextareaType::class, [
                 'required' => false,
                 'label' => 'Explication',
+                'attr' => ['rows' => 4],
             ])
             // Image principale (chemin texte + upload + suppression)
             ->add('questionImage', TextType::class, [
@@ -113,6 +116,13 @@ class CastellumQuestionType extends AbstractType
             $builder->add('qcmText'.$i, TextType::class, [
                 'required' => false,
                 'label' => 'Réponse texte QCM '.$i,
+            ]);
+        }
+
+        for ($i = 1; $i <= 10; $i++) {
+            $builder->add('qcmImage'.$i, TextType::class, [
+                'required' => false,
+                'label' => 'Réponse image QCM '.$i.' (chemin public ou URL)',
             ]);
         }
 

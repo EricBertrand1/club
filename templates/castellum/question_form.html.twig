@@ -53,10 +53,10 @@
     </div>
 
     {# Ligne 2 : sujet / durée / coordonnées X Y #}
-    <div class="col-md-6">{{ form_row(form.subject) }}</div>
-    <div class="col-md-3">{{ form_row(form.durationSeconds) }}</div>
-    <div class="col-md-1">{{ form_row(form.coordX) }}</div>
-    <div class="col-md-2">{{ form_row(form.coordY) }}</div>
+    <div class="col-md-5 col-xl-5">{{ form_row(form.subject) }}</div>
+    <div class="col-md-3 col-xl-3">{{ form_row(form.durationSeconds) }}</div>
+    <div class="col-md-2 col-xl-2">{{ form_row(form.coordX) }}</div>
+    <div class="col-md-2 col-xl-2">{{ form_row(form.coordY) }}</div>
 
     {# Ligne 3 : formation (chapitre, paragraphe) #}
     <div class="col-md-6">{{ form_row(form.formationChapter) }}</div>
@@ -68,19 +68,33 @@
     <div class="col-12">{{ form_row(form.explanation) }}</div>
 
     {# Ligne 5 : image de la question (champ texte + aperçu + upload + remove) #}
-    <div class="col-md-6">
-      {{ form_row(form.questionImage) }}
-      {% if form.vars.data and form.vars.data.questionImage %}
-        <div class="mt-2">
-          <div class="text-muted small mb-1">Image actuelle :</div>
-          <img src="{{ asset(form.vars.data.questionImage) }}" alt="" class="img-fluid rounded border" style="max-height:220px;">
+    {% set questionImagePath = form.vars.data and form.vars.data.questionImage ? form.vars.data.questionImage : null %}
+    {% set questionImageSrc = questionImagePath ? (questionImagePath starts with 'http' ? questionImagePath : asset(questionImagePath)) : '' %}
+    <div class="col-lg-7">
+      <div class="mb-3">
+        {{ form_label(form.questionImage) }}
+        <div class="input-group">
+          {{ form_widget(form.questionImage) }}
+          <button class="btn btn-outline-secondary" type="button" data-file-trigger="{{ form.questionImageFile.vars.id }}">…</button>
         </div>
-      {% endif %}
+        {{ form_errors(form.questionImage) }}
+        <div class="form-text">Saisissez un chemin ou utilisez le bouton pour sélectionner un fichier.</div>
+      </div>
+      <div>
+        <div class="text-muted small mb-1">Aperçu</div>
+        <img src="{{ questionImageSrc }}" alt="" class="img-fluid rounded border {{ questionImageSrc ? '' : 'd-none' }}" style="max-height:220px;" data-preview-id="question-image">
+        <div class="text-muted small {{ questionImageSrc ? 'd-none' : '' }}" data-preview-placeholder="question-image">Aucune image sélectionnée.</div>
+        {% if questionImagePath %}
+          <div class="text-muted small text-break mt-2">{{ questionImagePath }}</div>
+        {% endif %}
+      </div>
     </div>
-    <div class="col-md-6">
-      {{ form_row(form.questionImageFile) }}
+    <div class="col-lg-5">
+      {{ form_widget(form.questionImageFile, { attr: { class: 'd-none file-input', 'data-path-input': form.questionImage.vars.id, 'data-preview-target': 'question-image' } }) }}
+      {{ form_errors(form.questionImageFile) }}
+      <div class="form-text">Choisir un fichier remplace l’image actuelle.</div>
       {% if form.vars.data and form.vars.data.questionImage %}
-        <div class="mt-2">{{ form_row(form.removeImage) }}</div>
+        <div class="mt-3">{{ form_row(form.removeImage) }}</div>
       {% endif %}
     </div>
 
@@ -129,24 +143,38 @@
         <div class="card-body">
           <div class="row g-4">
             {% for i in 1..10 %}
-              <div class="col-md-6">
-                <div class="border rounded p-2 h-100">
-                  <div class="mb-2">
+              {% set imageField = attribute(form, 'qcmImage' ~ i) %}
+              {% set fileField = attribute(form, 'qcmImageFile' ~ i) %}
+              {% set getter = 'qcmImage' ~ i %}
+              {% set hasValue = form.vars.data ? attribute(form.vars.data, getter, [], 'any', true, true) : false %}
+              {% set currentPath = hasValue ? attribute(form.vars.data, getter, [], 'any', false, true) : null %}
+              {% set previewSrc = currentPath ? (currentPath starts with 'http' ? currentPath : asset(currentPath)) : '' %}
+              {% set previewId = 'qcm-image-' ~ i %}
+              <div class="col-lg-6 col-xl-4">
+                <div class="border rounded p-3 h-100 d-flex flex-column">
+                  <div class="mb-3">
                     <strong>QCM image {{ i }}</strong>
                   </div>
-                  <div class="mb-2">
-                    {% set getter = attribute(form.vars.data, 'qcmImage' ~ i) is defined ? 'qcmImage' ~ i : null %}
-                    {% set current = getter ? attribute(form.vars.data, getter) : null %}
-                    {% if current %}
-                      <div class="text-muted small mb-1">Image actuelle :</div>
-                      <img src="{{ asset(current) }}" alt="" class="img-fluid rounded border" style="max-height:160px;">
-                    {% else %}
-                      <div class="text-muted small">Aucune image actuelle.</div>
+                  <div class="mb-3">
+                    {{ form_label(imageField) }}
+                    <div class="input-group">
+                      {{ form_widget(imageField) }}
+                      <button class="btn btn-outline-secondary" type="button" data-file-trigger="{{ fileField.vars.id }}">…</button>
+                    </div>
+                    {{ form_errors(imageField) }}
+                  </div>
+                  <div class="mb-3">
+                    <div class="text-muted small mb-1">Aperçu</div>
+                    <img src="{{ previewSrc }}" alt="" class="img-fluid rounded border {{ previewSrc ? '' : 'd-none' }}" style="max-height:80px;" data-preview-id="{{ previewId }}">
+                    <div class="text-muted small {{ previewSrc ? 'd-none' : '' }}" data-preview-placeholder="{{ previewId }}">Aucune image sélectionnée.</div>
+                    {% if currentPath %}
+                      <div class="text-muted small text-break mt-2">{{ currentPath }}</div>
                     {% endif %}
                   </div>
-                  <div>
-                    {{ form_row(attribute(form, 'qcmImageFile' ~ i)) }}
-                    <div class="form-text">Téléverser un fichier remplace l’image actuelle.</div>
+                  <div class="mt-auto">
+                    {{ form_widget(fileField, { attr: { class: 'd-none file-input', 'data-path-input': imageField.vars.id, 'data-preview-target': previewId } }) }}
+                    {{ form_errors(fileField) }}
+                    <div class="form-text">Choisir un fichier remplace l’image actuelle.</div>
                   </div>
                 </div>
               </div>
@@ -170,4 +198,85 @@
 
   {{ form_end(form) }}
 </div>
+{% endblock %}
+
+{% block javascripts %}
+  {{ parent() }}
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('[data-file-trigger]').forEach(function (button) {
+        var targetId = button.getAttribute('data-file-trigger');
+        if (!targetId) {
+          return;
+        }
+        var input = document.getElementById(targetId);
+        if (!input) {
+          return;
+        }
+        button.addEventListener('click', function () {
+          input.click();
+        });
+      });
+
+      document.querySelectorAll('.file-input').forEach(function (input) {
+        var pathFieldId = input.getAttribute('data-path-input');
+        var pathField = pathFieldId ? document.getElementById(pathFieldId) : null;
+        if (pathField && !pathField.dataset.originalValue) {
+          pathField.dataset.originalValue = pathField.value || '';
+        }
+
+        var previewKey = input.getAttribute('data-preview-target');
+        var preview = previewKey ? document.querySelector('[data-preview-id="' + previewKey + '"]') : null;
+        var placeholder = previewKey ? document.querySelector('[data-preview-placeholder="' + previewKey + '"]') : null;
+        if (preview && !preview.dataset.originalSrc) {
+          preview.dataset.originalSrc = preview.getAttribute('src') || '';
+          if (!preview.dataset.originalSrc) {
+            preview.classList.add('d-none');
+          }
+        }
+
+        input.addEventListener('change', function () {
+          if (pathField) {
+            if (input.files && input.files.length > 0) {
+              pathField.value = input.files[0].name;
+            } else {
+              pathField.value = pathField.dataset.originalValue || '';
+            }
+          }
+
+          if (preview) {
+            if (preview.dataset.objectUrl) {
+              URL.revokeObjectURL(preview.dataset.objectUrl);
+              delete preview.dataset.objectUrl;
+            }
+
+            if (input.files && input.files.length > 0) {
+              var url = URL.createObjectURL(input.files[0]);
+              preview.src = url;
+              preview.dataset.objectUrl = url;
+              preview.classList.remove('d-none');
+              if (placeholder) {
+                placeholder.classList.add('d-none');
+              }
+            } else {
+              var original = preview.dataset.originalSrc || '';
+              if (original) {
+                preview.src = original;
+                preview.classList.remove('d-none');
+                if (placeholder) {
+                  placeholder.classList.add('d-none');
+                }
+              } else {
+                preview.removeAttribute('src');
+                preview.classList.add('d-none');
+                if (placeholder) {
+                  placeholder.classList.remove('d-none');
+                }
+              }
+            }
+          }
+        });
+      });
+    });
+  </script>
 {% endblock %}
