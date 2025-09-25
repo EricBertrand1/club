@@ -95,7 +95,6 @@ class CastellumQuestion
     #[ORM\Column(length: 255, nullable: true)] private ?string $qcmImage7 = null;
     #[ORM\Column(length: 255, nullable: true)] private ?string $qcmImage8 = null;
     #[ORM\Column(length: 255, nullable: true)] private ?string $qcmImage9 = null;
-    #[ORM\Column(length: 255, nullable: true)] private ?string $qcmImage10 = null;
 
     // Validations
     #[ORM\Column(length: 180, nullable: true)]
@@ -195,8 +194,6 @@ class CastellumQuestion
     public function setQcmImage8(?string $v): self { $this->qcmImage8 = $v; return $this; }
     public function getQcmImage9(): ?string { return $this->qcmImage9; }
     public function setQcmImage9(?string $v): self { $this->qcmImage9 = $v; return $this; }
-    public function getQcmImage10(): ?string { return $this->qcmImage10; }
-    public function setQcmImage10(?string $v): self { $this->qcmImage10 = $v; return $this; }
 
     public function getValidationSignataire1(): ?string { return $this->validationSignataire1; }
     public function setValidationSignataire1(?string $v): self { $this->validationSignataire1 = $v; return $this; }

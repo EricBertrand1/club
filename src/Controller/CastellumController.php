@@ -217,7 +217,7 @@ class CastellumController extends AbstractController
             : $audio
         );
 
-        for ($i=1;$i<=10;$i++){
+        for ($i=1;$i<=9;$i++){
             $getter='getQcmImage'.$i; $setter='setQcmImage'.$i; if(!method_exists($question,$getter)) continue;
             $val=$question->$getter();
             $copy->$setter($val && $this->isLocalPublic($val)
@@ -415,7 +415,7 @@ class CastellumController extends AbstractController
                 $q->setQuestionAudio($this->publicAudioPath($new));
             }
 
-            for($i=1;$i<=10;$i++){
+            for($i=1;$i<=9;$i++){
                 $field='qcmImageFile'.$i;
                 /** @var UploadedFile|null $f */
                 $f=$form->get($field)->getData();
@@ -441,66 +441,119 @@ class CastellumController extends AbstractController
     #[Route('/castellum/question/{id}/edit', name: 'castellum_question_edit', methods: ['GET','POST'])]
     public function editQuestion(Request $request, CastellumQuestion $question, EntityManagerInterface $em, SluggerInterface $slugger): Response
     {
-        $form=$this->createForm(CastellumQuestionType::class,$question);
+        $form = $this->createForm(CastellumQuestionType::class, $question);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            /** @var UploadedFile|null $file */
-            $file=$form->get('questionImageFile')->getData();
-            $remove=(bool)$form->get('removeImage')->getData();
 
-            if($remove && $question->getQuestionImage()){ @unlink($this->getParameter('kernel.project_dir').'/public/'.$question->getQuestionImage()); $question->setQuestionImage(null); }
-            if($file){
-                $original=pathinfo($file->getClientOriginalName(),PATHINFO_FILENAME);
-                $safe=$slugger->slug($original)->lower(); $newName=$safe.'-'.uniqid().'.'.$file->guessExtension();
-                @mkdir($this->uploadDir(),0777,true); $file->move($this->uploadDir(),$newName);
-                if($question->getQuestionImage() && $this->isLocalPublic($question->getQuestionImage())){
-                    @unlink($this->filesystemPublic($question->getQuestionImage()));
+            // ----- Image principale -----
+            /** @var UploadedFile|null $imgFile */
+            $imgFile  = $form->get('questionImageFile')->getData();
+            $rmImage  = ($request->request->get('removeImage') === '1');
+
+            if ($imgFile) {
+                @mkdir($this->uploadDir(), 0777, true);
+                $original = pathinfo($imgFile->getClientOriginalName(), PATHINFO_FILENAME);
+                $safe     = $slugger->slug($original)->lower();
+                $newName  = $safe.'-'.uniqid().'.'.$imgFile->guessExtension();
+                $imgFile->move($this->uploadDir(), $newName);
+
+                // supprime ancienne image locale si présente
+                $old = $question->getQuestionImage();
+                if ($old && $this->isLocalPublic($old)) {
+                    @unlink($this->filesystemPublic($old));
                 }
                 $question->setQuestionImage($this->publicUploadPath($newName));
+            } elseif ($rmImage) {
+                $old = $question->getQuestionImage();
+                if ($old && $this->isLocalPublic($old)) {
+                    @unlink($this->filesystemPublic($old));
+                }
+                $question->setQuestionImage(null);
             }
 
-            /** @var UploadedFile|null $audio */
-            $audio=$form->get('questionAudioFile')->getData();
-            if($audio){
-                @mkdir($this->audioUploadDir(),0777,true);
-                $ext=$audio->guessExtension()?:'bin'; $new='q-audio-'.uniqid().'.'.$ext;
-                $audio->move($this->audioUploadDir(),$new);
-                $old=$question->getQuestionAudio();
-                if($old && $this->isLocalPublic($old)) @unlink($this->filesystemPublic($old));
+            // ----- Audio -----
+            /** @var UploadedFile|null $audFile */
+            $audFile  = $form->get('questionAudioFile')->getData();
+            $rmAudio  = ($request->request->get('removeAudio') === '1');
+
+            if ($audFile) {
+                @mkdir($this->audioUploadDir(), 0777, true);
+                $ext = $audFile->guessExtension() ?: 'bin';
+                $new = 'q-audio-'.uniqid().'.'.$ext;
+                $audFile->move($this->audioUploadDir(), $new);
+
+                $old = $question->getQuestionAudio();
+                if ($old && $this->isLocalPublic($old)) {
+                    @unlink($this->filesystemPublic($old));
+                }
                 $question->setQuestionAudio($this->publicAudioPath($new));
+            } elseif ($rmAudio) {
+                $old = $question->getQuestionAudio();
+                if ($old && $this->isLocalPublic($old)) {
+                    @unlink($this->filesystemPublic($old));
+                }
+                $question->setQuestionAudio(null);
             }
 
-            for($i=1;$i<=10;$i++){
-                $field='qcmImageFile'.$i;
+            // ----- QCM images 1..10 -----
+            $rmMap = $request->request->all('removeQcmImage') ?? []; // ex: ['3' => '1', '7' => '1']
+
+            for ($i = 1; $i <= 9; $i++) {
+                $fileField = 'qcmImageFile'.$i;
                 /** @var UploadedFile|null $f */
-                $f=$form->get($field)->getData();
-                if($f){
-                    @mkdir($this->qcmUploadDir(),0777,true);
-                    $ext=$f->guessExtension()?:'jpg'; $new='qcm-'.$i.'-'.uniqid().'.'.$ext;
-                    $f->move($this->qcmUploadDir(),$new);
-                    $getter='getQcmImage'.$i; $setter='setQcmImage'.$i;
-                    if(method_exists($question,$getter)){
-                        $old=$question->$getter(); if($old && $this->isLocalPublic($old)) @unlink($this->filesystemPublic($old));
+                $f = $form->get($fileField)->getData();
+
+                $getter = 'getQcmImage'.$i;
+                $setter = 'setQcmImage'.$i;
+
+                if ($f) {
+                    @mkdir($this->qcmUploadDir(), 0777, true);
+                    $ext = $f->guessExtension() ?: 'jpg';
+                    $new = 'qcm-'.$i.'-'.uniqid().'.'.$ext;
+                    $f->move($this->qcmUploadDir(), $new);
+
+                    if (method_exists($question, $getter)) {
+                        $old = $question->$getter();
+                        if ($old && $this->isLocalPublic($old)) {
+                            @unlink($this->filesystemPublic($old));
+                        }
                     }
-                    if(method_exists($question,$setter)){ $question->$setter($this->publicQcmPath($new)); }
+                    if (method_exists($question, $setter)) {
+                        $question->$setter($this->publicQcmPath($new));
+                    }
+                } else {
+                    // pas de nouveau fichier => voir si on a cliqué "Retirer"
+                    $askedRemove = isset($rmMap[(string)$i]) && $rmMap[(string)$i] === '1';
+                    if ($askedRemove && method_exists($question, $getter) && method_exists($question, $setter)) {
+                        $old = $question->$getter();
+                        if ($old && $this->isLocalPublic($old)) {
+                            @unlink($this->filesystemPublic($old));
+                        }
+                        $question->$setter(null);
+                    }
                 }
             }
 
-            // garde la catégorie en phase
+            // Garde la catégorie cohérente avec la sous-catégorie
             $question->setCategoryCode($question->getSubcategory()->getCode());
-            // ✅ MAJ updated_at UNIQUEMENT ici (à l’enregistrement)
+
+            // MAJ updatedAt uniquement à l’enregistrement
             $question->touch();
             $em->flush();
 
-            $this->addFlash('success','Question mise à jour.');
-            return $this->redirectToRoute('castellum_questions', ['id'=>$question->getSubcategory()->getId()]);
+            $this->addFlash('success', 'Question mise à jour.');
+            return $this->redirectToRoute('castellum_questions', ['id' => $question->getSubcategory()->getId()]);
         }
 
         return $this->render('castellum/question_form.html.twig', [
-            'form'=>$form->createView(),'mode'=>'edit','subcategory'=>$question->getSubcategory(),
+            'form' => $form->createView(),
+            'mode' => 'edit',
+            'subcategory' => $question->getSubcategory(),
         ]);
     }
+
+
 
     #[Route('/castellum/question/{id}/delete', name: 'castellum_question_delete', methods: ['POST'])]
     public function deleteQuestion(Request $request, CastellumQuestion $question, EntityManagerInterface $em): Response
@@ -512,7 +565,7 @@ class CastellumController extends AbstractController
 
         $img=$question->getQuestionImage(); if($img && $this->isLocalPublic($img)) @unlink($this->filesystemPublic($img));
         $aud=$question->getQuestionAudio(); if($aud && $this->isLocalPublic($aud)) @unlink($this->filesystemPublic($aud));
-        for($i=1;$i<=10;$i++){ $g='getQcmImage'.$i; if(method_exists($question,$g)){ $p=$question->$g(); if($p && $this->isLocalPublic($p)) @unlink($this->filesystemPublic($p)); } }
+        for($i=1;$i<=9;$i++){ $g='getQcmImage'.$i; if(method_exists($question,$g)){ $p=$question->$g(); if($p && $this->isLocalPublic($p)) @unlink($this->filesystemPublic($p)); } }
 
         $subcatId=$question->getSubcategory()->getId();
         $em->remove($question); $em->flush();

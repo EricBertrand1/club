@@ -1,8 +1,77 @@
 {% extends 'base.html.twig' %}
 {% block title %}Castellum — {{ mode == 'new' ? 'Nouvelle question' : 'Éditer la question' }}{% endblock %}
 
+{# Palette sobre et scoped #}
+{% block stylesheets %}
+  {{ parent() }}
+  <style>
+    .castellum-form {
+      --bg-page: #ffffff;
+      --card-bg: #ffffff;
+      --card-border: #e5e7eb;
+      --card-head-bg: #f3f4f6;
+      --card-head-fg: #374151;
+
+      --label-fg: #374151;
+      --muted-fg: #6b7280;
+
+      --field-bg: #f7f8fb;           /* fond doux */
+      --field-bg-focus: #ffffff;      /* un peu plus clair au focus */
+      --field-border: #cfd6e1;
+      --field-border-focus: #9db4d6;  /* bleu-gris focus */
+      --field-placeholder: #9aa3af;
+      --ring: rgba(13,110,253,.08);   /* halo focus discret */
+    }
+
+    .castellum-form .form-label { color: var(--label-fg); }
+    .castellum-form .text-muted { color: var(--muted-fg) !important; }
+
+    .castellum-form .form-control,
+    .castellum-form .form-select {
+      background-color: var(--field-bg);
+      border-color: var(--field-border);
+      color: #111827;
+    }
+    .castellum-form .form-control::placeholder { color: var(--field-placeholder); }
+
+    .castellum-form .form-control:focus,
+    .castellum-form .form-select:focus {
+      background-color: var(--field-bg-focus);
+      border-color: var(--field-border-focus);
+      box-shadow: 0 0 0 .2rem var(--ring);
+    }
+
+    .castellum-form .card {
+      background-color: var(--card-bg);
+      border-color: var(--card-border);
+    }
+    .castellum-form .card-header {
+      background-color: var(--card-head-bg);
+      color: var(--card-head-fg);
+      border-bottom-color: var(--card-border);
+      font-weight: 600;
+    }
+
+    /* Inputs dans input-group pour garder la teinte */
+    .castellum-form .input-group .form-control {
+      background-color: var(--field-bg);
+      border-color: var(--field-border);
+    }
+
+    /* Aperçus et blocs visuels */
+    .castellum-form img.border { border-color: var(--card-border) !important; }
+
+    /* Désactivés plus lisibles sur fond teinté */
+    .castellum-form .form-control:disabled,
+    .castellum-form .form-select:disabled {
+      background-color: #eef1f6;
+      color: #6b7280;
+    }
+  </style>
+{% endblock %}
+
 {% block body %}
-<div class="container py-5">
+<div class="container-fluid py-5 castellum-form">
   <!-- Barre titre + actions -->
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
@@ -38,10 +107,30 @@
 
   <div class="row g-3">
 
-    {# Ligne 1 : sous-catégorie / niveau / type / Dernière modif (lecture seule) #}
-    <div class="col-md-4">{{ form_row(form.subcategory) }}</div>
-    <div class="col-md-3">{{ form_row(form.levelQuestion) }}</div>
-    <div class="col-md-3">{{ form_row(form.questionType) }}</div>
+    <!-- Ligne 1 -->
+    <div class="col-md-4">
+      <div class="mb-3">
+        {{ form_label(form.subcategory, 'Sous-catégorie', {'label_attr': {'class': 'form-label d-block'}}) }}
+        {{ form_widget(form.subcategory, {'attr': {'class': 'form-select w-100'}}) }}
+        {{ form_errors(form.subcategory) }}
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="mb-3">
+        {{ form_label(form.levelQuestion, 'Niveau', {'label_attr': {'class': 'form-label d-block'}}) }}
+        {{ form_widget(form.levelQuestion, {'attr': {'class': 'form-select w-100'}}) }}
+        {{ form_errors(form.levelQuestion) }}
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="mb-3">
+        {{ form_label(form.questionType, 'Type de question', {'label_attr': {'class': 'form-label d-block'}}) }}
+        {{ form_widget(form.questionType, {'attr': {'class': 'form-control w-100'}}) }}
+        {{ form_errors(form.questionType) }}
+      </div>
+    </div>
 
     <div class="col-md-2">
       <label class="form-label">Dernière modif.</label>
@@ -52,38 +141,100 @@
       <div class="form-text text-muted">🔒 Mis à jour automatiquement à l’enregistrement</div>
     </div>
 
-    {# Ligne 2 : sujet / durée / coordonnées X Y #}
-    <div class="col-md-5 col-xl-5">{{ form_row(form.subject) }}</div>
-    <div class="col-md-3 col-xl-3">{{ form_row(form.durationSeconds) }}</div>
-    <div class="col-md-2 col-xl-2">{{ form_row(form.coordX) }}</div>
-    <div class="col-md-2 col-xl-2">{{ form_row(form.coordY) }}</div>
+    <!-- Ligne 2 -->
+    <div class="col-md-8 col-xl-8">
+      {{ form_row(form.subject) }}
+    </div>
 
-    {# Ligne 3 : formation (chapitre, paragraphe) #}
-    <div class="col-md-6">{{ form_row(form.formationChapter) }}</div>
-    <div class="col-md-6">{{ form_row(form.formationParagraph) }}</div>
-
-    {# Ligne 4 : textes principaux #}
-    <div class="col-12">{{ form_row(form.questionText) }}</div>
-    <div class="col-12">{{ form_row(form.answerText) }}</div>
-    <div class="col-12">{{ form_row(form.explanation) }}</div>
-
-    {# Ligne 5 : image de la question (champ texte + aperçu + upload + remove) #}
-    {% set questionImagePath = form.vars.data and form.vars.data.questionImage ? form.vars.data.questionImage : null %}
-    {% set questionImageSrc = questionImagePath ? (questionImagePath starts with 'http' ? questionImagePath : asset(questionImagePath)) : '' %}
-    <div class="col-lg-7">
-      <div class="mb-3">
-        {{ form_label(form.questionImage) }}
-        <div class="input-group">
-          {{ form_widget(form.questionImage) }}
-          <button class="btn btn-outline-secondary" type="button" data-file-trigger="{{ form.questionImageFile.vars.id }}">…</button>
-        </div>
-        {{ form_errors(form.questionImage) }}
-        <div class="form-text">Saisissez un chemin ou utilisez le bouton pour sélectionner un fichier.</div>
+    <div class="col-md-2 col-xl-2">
+      <div class="d-flex align-items-center gap-2">
+        {{ form_label(form.durationSeconds, 'Durée max. (secondes)', { label_attr: {class: 'form-label mb-0 text-nowrap'} }) }}
+        {{ form_widget(form.durationSeconds, {attr: {class: 'form-control'}}) }}
       </div>
-      <div>
+      {{ form_errors(form.durationSeconds) }}
+    </div>
+
+    <div class="col-md-1 col-xl-1">
+      <div class="d-flex align-items-center gap-2">
+        {{ form_label(form.coordX, 'Coord. X', { label_attr: {class: 'form-label mb-0 text-nowrap'} }) }}
+        {{ form_widget(form.coordX, {attr: {class: 'form-control'}}) }}
+      </div>
+      {{ form_errors(form.coordX) }}
+    </div>
+
+    <div class="col-md-1 col-xl-1">
+      <div class="d-flex align-items-center gap-2">
+        {{ form_label(form.coordY, 'Coord. Y', { label_attr: {class: 'form-label mb-0 text-nowrap'} }) }}
+        {{ form_widget(form.coordY, {attr: {class: 'form-control'}}) }}
+      </div>
+      {{ form_errors(form.coordY) }}
+    </div>
+
+    <!-- Ligne 3 -->
+    <div class="col-md-6">
+      <div class="d-flex align-items-center gap-2">
+        {{ form_label(form.formationChapter, 'Formation — Chapitre', { label_attr: {class: 'form-label mb-0 text-nowrap'} }) }}
+        {{ form_widget(form.formationChapter, { attr: { class: 'form-control' } }) }}
+      </div>
+      {{ form_errors(form.formationChapter) }}
+    </div>
+
+    <div class="col-md-6">
+      <div class="d-flex align-items-center gap-2">
+        {{ form_label(form.formationParagraph, 'Formation — Paragraphe', { label_attr: {class: 'form-label mb-0 text-nowrap'} }) }}
+        {{ form_widget(form.formationParagraph, { attr: { class: 'form-control' } }) }}
+      </div>
+      {{ form_errors(form.formationParagraph) }}
+    </div>
+
+    <!-- Ligne 4 : zones de texte pleine largeur -->
+    <div class="col-12">
+      <div class="mb-3">
+        {{ form_label(form.questionText, 'Énoncé de la question', {'label_attr': {'class': 'form-label d-block'}}) }}
+        {{ form_widget(form.questionText, {'attr': {'class': 'form-control w-100', 'rows': 2}}) }}
+        {{ form_errors(form.questionText) }}
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="mb-3">
+        {{ form_label(form.answerText, 'Réponse attendue', {'label_attr': {'class': 'form-label d-block'}}) }}
+        {{ form_widget(form.answerText, {'attr': {'class': 'form-control w-100', 'rows': 2}}) }}
+        {{ form_errors(form.answerText) }}
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="mb-3">
+        {{ form_label(form.explanation, 'Explication', {'label_attr': {'class': 'form-label d-block'}}) }}
+        {{ form_widget(form.explanation, {'attr': {'class': 'form-control w-100', 'rows': 3}}) }}
+        {{ form_errors(form.explanation) }}
+      </div>
+    </div>
+
+    <!-- Ligne 5 : image principale -->
+    {% set questionImagePath = form.vars.data and form.vars.data.questionImage ? form.vars.data.questionImage : null %}
+    {% set questionImageSrc  = questionImagePath ? (questionImagePath starts with 'http' ? questionImagePath : asset(questionImagePath)) : '' %}
+    <div class="col-lg-7">
+      {{ form_label(form.questionImage) }}
+      <div class="input-group mb-2">
+        {{ form_widget(form.questionImage) }}
+        <button class="btn btn-outline-secondary" type="button" data-file-trigger="{{ form.questionImageFile.vars.id }}">…</button>
+        <button class="btn btn-outline-danger" type="button"
+                data-remove-target="remove-image"
+                data-file-input="{{ form.questionImageFile.vars.id }}"
+                data-path-input="{{ form.questionImage.vars.id }}"
+                data-preview-target="question-image">Retirer</button>
+      </div>
+
+      <div class="mt-2">
         <div class="text-muted small mb-1">Aperçu</div>
-        <img src="{{ questionImageSrc }}" alt="" class="img-fluid rounded border {{ questionImageSrc ? '' : 'd-none' }}" style="max-height:220px;" data-preview-id="question-image">
-        <div class="text-muted small {{ questionImageSrc ? 'd-none' : '' }}" data-preview-placeholder="question-image">Aucune image sélectionnée.</div>
+        <img src="{{ questionImageSrc }}" alt=""
+             class="img-fluid rounded border {{ questionImageSrc ? '' : 'd-none' }}"
+             style="max-height:220px;" data-preview-id="question-image">
+        <div class="text-muted small {{ questionImageSrc ? 'd-none' : '' }}" data-preview-placeholder="question-image">
+          Aucune image sélectionnée.
+        </div>
         {% if questionImagePath %}
           <div class="text-muted small text-break mt-2">{{ questionImagePath }}</div>
         {% endif %}
@@ -92,90 +243,100 @@
     <div class="col-lg-5">
       {{ form_widget(form.questionImageFile, { attr: { class: 'd-none file-input', 'data-path-input': form.questionImage.vars.id, 'data-preview-target': 'question-image' } }) }}
       {{ form_errors(form.questionImageFile) }}
-      <div class="form-text">Choisir un fichier remplace l’image actuelle.</div>
-      {% if form.vars.data and form.vars.data.questionImage %}
-        <div class="mt-3">{{ form_row(form.removeImage) }}</div>
-      {% endif %}
+      <input type="hidden" name="removeImage" id="remove-image" value="0">
     </div>
 
-    {# Ligne 6 : audio de la question (aperçu + upload) #}
-    <div class="col-md-6">
-      <label class="form-label d-block">Aperçu audio (si présent)</label>
-      {% if form.vars.data and form.vars.data.questionAudio %}
-        <audio controls style="width:100%;">
-          <source src="{{ asset(form.vars.data.questionAudio) }}">
-          Votre navigateur ne supporte pas la balise audio.
-        </audio>
-      {% else %}
-        <div class="text-muted small">Aucun fichier audio associé.</div>
-      {% endif %}
-    </div>
-    <div class="col-md-6">
-      {{ form_row(form.questionAudioFile) }}
-      <div class="form-text">Téléverser un nouveau fichier remplace l’ancien.</div>
+    <!-- Ligne 6 : audio -->
+    <div class="col-md-12">
+      <label class="form-label">Fichier audio de la question</label>
+      <div class="input-group mb-2">
+        <input type="text" class="form-control" value="{{ form.vars.data.questionAudio ?? '' }}" placeholder="(aucun)" readonly>
+        <button class="btn btn-outline-secondary" type="button" data-file-trigger="{{ form.questionAudioFile.vars.id }}">…</button>
+        <button class="btn btn-outline-danger" type="button"
+                data-remove-target="remove-audio"
+                data-file-input="{{ form.questionAudioFile.vars.id }}"
+                data-preview-audio="audio-preview">Retirer</button>
+      </div>
+      {{ form_widget(form.questionAudioFile, { attr: { class: 'd-none file-input', 'data-preview-audio': 'audio-preview' } }) }}
+
+      <div>
+        <label class="form-label d-block">Aperçu audio (si présent)</label>
+        {% if form.vars.data and form.vars.data.questionAudio %}
+          <audio id="audio-preview" controls style="width:100%;">
+            <source src="{{ asset(form.vars.data.questionAudio) }}">
+          </audio>
+        {% else %}
+          <audio id="audio-preview" controls style="width:100%; display:none;"></audio>
+          <div class="text-muted small" data-audio-placeholder="audio-preview">Aucun fichier audio associé.</div>
+        {% endif %}
+      </div>
+
+      <input type="hidden" name="removeAudio" id="remove-audio" value="0">
     </div>
 
-    {# Ligne 7 : QCM — Textes 1..10 #}
+    <!-- Ligne 7 : QCM — Textes -->
     <div class="col-12">
       <div class="card">
         <div class="card-header">Réponses QCM — Textes</div>
         <div class="card-body">
           <div class="row g-3">
-            <div class="col-md-6">{{ form_row(form.qcmText1) }}</div>
-            <div class="col-md-6">{{ form_row(form.qcmText2) }}</div>
-            <div class="col-md-6">{{ form_row(form.qcmText3) }}</div>
-            <div class="col-md-6">{{ form_row(form.qcmText4) }}</div>
-            <div class="col-md-6">{{ form_row(form.qcmText5) }}</div>
-            <div class="col-md-6">{{ form_row(form.qcmText6) }}</div>
-            <div class="col-md-6">{{ form_row(form.qcmText7) }}</div>
-            <div class="col-md-6">{{ form_row(form.qcmText8) }}</div>
-            <div class="col-md-6">{{ form_row(form.qcmText9) }}</div>
-            <div class="col-md-6">{{ form_row(form.qcmText10) }}</div>
+            {% for i in 1..10 %}
+              {% set f = attribute(form, 'qcmText' ~ i) %}
+              <div class="col-md-6">
+                <div class="d-flex align-items-center gap-2">
+                  {{ form_label(f, 'Réponse texte QCM ' ~ i, {'label_attr': {'class': 'form-label mb-0 text-nowrap'}}) }}
+                  {{ form_widget(f, {'attr': {'class': 'form-control flex-grow-1'}}) }}
+                </div>
+                {{ form_errors(f) }}
+              </div>
+            {% endfor %}
           </div>
         </div>
       </div>
     </div>
 
-    {# Ligne 8 : QCM — Images 1..10 (aperçus si existants + champs upload) #}
+    <!-- Ligne 8 : QCM — Images 1..9 -->
     <div class="col-12">
       <div class="card mt-3">
         <div class="card-header">Réponses QCM — Images</div>
         <div class="card-body">
           <div class="row g-4">
-            {% for i in 1..10 %}
+            {% for i in 1..9 %}
               {% set imageField = attribute(form, 'qcmImage' ~ i) %}
-              {% set fileField = attribute(form, 'qcmImageFile' ~ i) %}
+              {% set fileField  = attribute(form, 'qcmImageFile' ~ i) %}
               {% set getter = 'qcmImage' ~ i %}
               {% set hasValue = form.vars.data ? attribute(form.vars.data, getter, [], 'any', true, true) : false %}
               {% set currentPath = hasValue ? attribute(form.vars.data, getter, [], 'any', false, true) : null %}
               {% set previewSrc = currentPath ? (currentPath starts with 'http' ? currentPath : asset(currentPath)) : '' %}
               {% set previewId = 'qcm-image-' ~ i %}
-              <div class="col-lg-6 col-xl-4">
+              <div class="col-xxl-4 col-lg-6">
                 <div class="border rounded p-3 h-100 d-flex flex-column">
-                  <div class="mb-3">
-                    <strong>QCM image {{ i }}</strong>
+                  <div class="mb-2"><strong>QCM image {{ i }}</strong></div>
+
+                  <div class="input-group mb-2">
+                    {{ form_widget(imageField) }}
+                    <button class="btn btn-outline-secondary" type="button" data-file-trigger="{{ fileField.vars.id }}">…</button>
+                    <button class="btn btn-outline-danger" type="button"
+                            data-remove-target="remove-qcm-{{ i }}"
+                            data-file-input="{{ fileField.vars.id }}"
+                            data-path-input="{{ imageField.vars.id }}"
+                            data-preview-target="{{ previewId }}">Retirer</button>
                   </div>
-                  <div class="mb-3">
-                    {{ form_label(imageField) }}
-                    <div class="input-group">
-                      {{ form_widget(imageField) }}
-                      <button class="btn btn-outline-secondary" type="button" data-file-trigger="{{ fileField.vars.id }}">…</button>
-                    </div>
-                    {{ form_errors(imageField) }}
-                  </div>
-                  <div class="mb-3">
+
+                  <div class="mb-2">
                     <div class="text-muted small mb-1">Aperçu</div>
-                    <img src="{{ previewSrc }}" alt="" class="img-fluid rounded border {{ previewSrc ? '' : 'd-none' }}" style="max-height:80px;" data-preview-id="{{ previewId }}">
-                    <div class="text-muted small {{ previewSrc ? 'd-none' : '' }}" data-preview-placeholder="{{ previewId }}">Aucune image sélectionnée.</div>
+                    <img src="{{ previewSrc }}" alt=""
+                         class="img-fluid rounded border {{ previewSrc ? '' : 'd-none' }}"
+                         style="max-height:80px;" data-preview-id="{{ previewId }}">
+                    <div class="text-muted small {{ previewSrc ? 'd-none' : '' }}"
+                         data-preview-placeholder="{{ previewId }}">Aucune image sélectionnée.</div>
                     {% if currentPath %}
                       <div class="text-muted small text-break mt-2">{{ currentPath }}</div>
                     {% endif %}
                   </div>
-                  <div class="mt-auto">
-                    {{ form_widget(fileField, { attr: { class: 'd-none file-input', 'data-path-input': imageField.vars.id, 'data-preview-target': previewId } }) }}
-                    {{ form_errors(fileField) }}
-                    <div class="form-text">Choisir un fichier remplace l’image actuelle.</div>
-                  </div>
+
+                  {{ form_widget(fileField, { attr: { class: 'd-none file-input', 'data-path-input': imageField.vars.id, 'data-preview-target': previewId } }) }}
+                  <input type="hidden" name="removeQcmImage[{{ i }}]" id="remove-qcm-{{ i }}" value="0">
                 </div>
               </div>
             {% endfor %}
@@ -184,10 +345,30 @@
       </div>
     </div>
 
-    {# Ligne 9 : validations #}
-    <div class="col-md-4">{{ form_row(form.validationSignataire1) }}</div>
-    <div class="col-md-4">{{ form_row(form.validationSignataire2) }}</div>
-    <div class="col-md-4">{{ form_row(form.validationSignataire3) }}</div>
+    <!-- Ligne 9 : validations -->
+    <div class="col-md-4">
+      <div class="d-flex align-items-center gap-2">
+        {{ form_label(form.validationSignataire1, 'Validation — Signataire 1', {'label_attr': {'class': 'form-label mb-0 text-nowrap'}}) }}
+        {{ form_widget(form.validationSignataire1, {'attr': {'class': 'form-control'}}) }}
+      </div>
+      {{ form_errors(form.validationSignataire1) }}
+    </div>
+
+    <div class="col-md-4">
+      <div class="d-flex align-items-center gap-2">
+        {{ form_label(form.validationSignataire2, 'Validation — Signataire 2', {'label_attr': {'class': 'form-label mb-0 text-nowrap'}}) }}
+        {{ form_widget(form.validationSignataire2, {'attr': {'class': 'form-control'}}) }}
+      </div>
+      {{ form_errors(form.validationSignataire2) }}
+    </div>
+
+    <div class="col-md-4">
+      <div class="d-flex align-items-center gap-2">
+        {{ form_label(form.validationSignataire3, 'Validation — Signataire 3', {'label_attr': {'class': 'form-label mb-0 text-nowrap'}}) }}
+        {{ form_widget(form.validationSignataire3, {'attr': {'class': 'form-control'}}) }}
+      </div>
+      {{ form_errors(form.validationSignataire3) }}
+    </div>
 
   </div>
 
@@ -204,76 +385,84 @@
   {{ parent() }}
   <script>
     window.addEventListener('DOMContentLoaded', function () {
-      document.querySelectorAll('[data-file-trigger]').forEach(function (button) {
-        var targetId = button.getAttribute('data-file-trigger');
-        if (!targetId) {
-          return;
-        }
-        var input = document.getElementById(targetId);
-        if (!input) {
-          return;
-        }
-        button.addEventListener('click', function () {
-          input.click();
-        });
+      document.querySelectorAll('[data-file-trigger]').forEach(function (btn) {
+        const id = btn.getAttribute('data-file-trigger');
+        const input = document.getElementById(id);
+        if (!input) return;
+        btn.addEventListener('click', () => input.click());
       });
 
       document.querySelectorAll('.file-input').forEach(function (input) {
-        var pathFieldId = input.getAttribute('data-path-input');
-        var pathField = pathFieldId ? document.getElementById(pathFieldId) : null;
-        if (pathField && !pathField.dataset.originalValue) {
-          pathField.dataset.originalValue = pathField.value || '';
-        }
+        const pathId = input.getAttribute('data-path-input');
+        const previewKey = input.getAttribute('data-preview-target');
+        const audioKey = input.getAttribute('data-preview-audio');
 
-        var previewKey = input.getAttribute('data-preview-target');
-        var preview = previewKey ? document.querySelector('[data-preview-id="' + previewKey + '"]') : null;
-        var placeholder = previewKey ? document.querySelector('[data-preview-placeholder="' + previewKey + '"]') : null;
-        if (preview && !preview.dataset.originalSrc) {
-          preview.dataset.originalSrc = preview.getAttribute('src') || '';
-          if (!preview.dataset.originalSrc) {
-            preview.classList.add('d-none');
-          }
-        }
+        const pathField = pathId ? document.getElementById(pathId) : null;
+        const img = previewKey ? document.querySelector('[data-preview-id="'+previewKey+'"]') : null;
+        const placeholder = previewKey ? document.querySelector('[data-preview-placeholder="'+previewKey+'"]') : null;
+        const audio = audioKey ? document.getElementById(audioKey) : null;
+        const audioPh = audioKey ? document.querySelector('[data-audio-placeholder="'+audioKey+'"]') : null;
+
+        if (img && !img.dataset.originalSrc) img.dataset.originalSrc = img.getAttribute('src') || '';
+        if (pathField && !pathField.dataset.originalValue) pathField.dataset.originalValue = pathField.value || '';
 
         input.addEventListener('change', function () {
-          if (pathField) {
-            if (input.files && input.files.length > 0) {
-              pathField.value = input.files[0].name;
+          if (pathField) pathField.value = (input.files && input.files[0]) ? input.files[0].name : (pathField.dataset.originalValue || '');
+
+          if (img) {
+            if (img.dataset.objectUrl) { URL.revokeObjectURL(img.dataset.objectUrl); img.dataset.objectUrl = ''; }
+            if (input.files && input.files[0]) {
+              const url = URL.createObjectURL(input.files[0]);
+              img.src = url; img.dataset.objectUrl = url; img.classList.remove('d-none'); if (placeholder) placeholder.classList.add('d-none');
             } else {
-              pathField.value = pathField.dataset.originalValue || '';
+              const original = img.dataset.originalSrc || '';
+              if (original) { img.src = original; img.classList.remove('d-none'); if (placeholder) placeholder.classList.add('d-none'); }
+              else { img.removeAttribute('src'); img.classList.add('d-none'); if (placeholder) placeholder.classList.remove('d-none'); }
             }
           }
 
-          if (preview) {
-            if (preview.dataset.objectUrl) {
-              URL.revokeObjectURL(preview.dataset.objectUrl);
-              delete preview.dataset.objectUrl;
-            }
-
-            if (input.files && input.files.length > 0) {
-              var url = URL.createObjectURL(input.files[0]);
-              preview.src = url;
-              preview.dataset.objectUrl = url;
-              preview.classList.remove('d-none');
-              if (placeholder) {
-                placeholder.classList.add('d-none');
-              }
+          if (audio) {
+            while (audio.firstChild) audio.removeChild(audio.firstChild);
+            if (input.files && input.files[0]) {
+              const url = URL.createObjectURL(input.files[0]);
+              const src = document.createElement('source');
+              src.src = url; audio.appendChild(src);
+              audio.style.display = 'block'; if (audioPh) audioPh.style.display = 'none';
+              audio.load();
             } else {
-              var original = preview.dataset.originalSrc || '';
-              if (original) {
-                preview.src = original;
-                preview.classList.remove('d-none');
-                if (placeholder) {
-                  placeholder.classList.add('d-none');
-                }
-              } else {
-                preview.removeAttribute('src');
-                preview.classList.add('d-none');
-                if (placeholder) {
-                  placeholder.classList.remove('d-none');
-                }
-              }
+              audio.style.display = 'none'; if (audioPh) audioPh.style.display = '';
             }
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-remove-target]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const hiddenId  = btn.getAttribute('data-remove-target');
+          const fileId    = btn.getAttribute('data-file-input');
+          const pathId    = btn.getAttribute('data-path-input');
+          const previewId = btn.getAttribute('data-preview-target');
+          const audioId   = btn.getAttribute('data-preview-audio');
+
+          const hidden = hiddenId ? document.getElementById(hiddenId) : null;
+          const file   = fileId ? document.getElementById(fileId) : null;
+          const path   = pathId ? document.getElementById(pathId) : null;
+          const img    = previewId ? document.querySelector('[data-preview-id="'+previewId+'"]') : null;
+          const ph     = previewId ? document.querySelector('[data-preview-placeholder="'+previewId+'"]') : null;
+          const audio  = audioId ? document.getElementById(audioId) : null;
+          const audioPh= audioId ? document.querySelector('[data-audio-placeholder="'+audioId+'"]') : null;
+
+          if (hidden) hidden.value = '1';
+          if (file)   file.value = '';
+          if (path)   path.value = '';
+
+          if (img) { img.removeAttribute('src'); img.classList.add('d-none'); }
+          if (ph)  { ph.classList.remove('d-none'); }
+
+          if (audio) {
+            while (audio.firstChild) audio.removeChild(audio.firstChild);
+            audio.style.display = 'none';
+            if (audioPh) audioPh.style.display = '';
           }
         });
       });

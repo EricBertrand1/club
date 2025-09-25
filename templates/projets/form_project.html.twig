@@ -1,0 +1,12 @@
+{% extends 'base.html.twig' %}
+{% block title %}{{ mode == 'new' ? 'Nouveau projet' : 'Modifier projet' }}{% endblock %}
+{% block body %}
+<div class="container py-4">
+  <h1 class="h4 mb-3">{{ mode == 'new' ? 'Nouveau projet' : 'Modifier projet' }}</h1>
+  {{ form_start(form) }}
+    {{ form_row(form.name) }}
+    <button class="btn btn-primary mt-2">Enregistrer</button>
+    <a href="{{ path('projets_index') }}" class="btn btn-outline-secondary mt-2">Annuler</a>
+  {{ form_end(form) }}
+</div>
+{% endblock %}

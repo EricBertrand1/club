@@ -68,3 +68,24 @@
 .menu-box:hover {
   border-color: #b6d1ff;
 }
+
+/* Gantt – barres de tâches colorées */
+.gantt .bar{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  margin: 0 2px;
+  border-radius: 6px;
+  padding: 0 .5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: .875rem;
+  line-height: 1;
+  color: #fff;
+  text-decoration: none;
+}
+.gantt .bar .label{ pointer-events: none; }
+
