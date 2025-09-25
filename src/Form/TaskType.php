@@ -15,35 +15,57 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class TaskType extends AbstractType
 {
-    public function buildForm(FormBuilderInterface $b, array $o): void
+    public function buildForm(FormBuilderInterface $builder, array $options): void
     {
-        $b
-          ->add('name', TextType::class, ['label' => 'Nom de la tâche'])
-          ->add('actors', EntityType::class, [
-              'class' => User::class,
-              'choice_label' => 'username', // adapte si tu préfères username
-              'multiple' => true, 'expanded' => false,
-              'label' => 'Acteurs'
-          ])
-          ->add('startDate', DateType::class, [
-              'widget' => 'single_text', 'required' => false, 'label' => 'Début'
-          ])
-          ->add('endDate', DateType::class, [
-              'widget' => 'single_text', 'required' => false, 'label' => 'Fin'
-          ])
-          ->add('hoursPlanned', IntegerType::class, ['label' => 'Heures prév.'])
-          ->add('status', ChoiceType::class, [
-              'label' => 'Statut',
-              'choices' => [
-                  'Non commencé' => Task::STATUS_NOT_STARTED,
-                  'En cours'     => Task::STATUS_IN_PROGRESS,
-                  'Terminé'      => Task::STATUS_DONE,
-              ],
-          ]);
+        $builder
+            // Champs "classiques"
+            ->add('name', TextType::class, [
+                'label' => 'Nom de la tâche',
+            ])
+            ->add('actors', EntityType::class, [
+                'label'        => 'Acteurs',
+                'class'        => User::class,
+                'choice_label' => 'username',
+                'multiple'     => true,
+                'required'     => false,
+            ])
+            ->add('startDate', DateType::class, [
+                'label'    => 'Début',
+                'widget'   => 'single_text',
+                'required' => false,
+            ])
+            ->add('endDate', DateType::class, [
+                'label'    => 'Fin',
+                'widget'   => 'single_text',
+                'required' => false,
+            ])
+            ->add('hoursPlanned', IntegerType::class, [
+                'label' => 'Heures prév.',
+                'attr'  => ['min' => 1],
+            ])
+            ->add('status', ChoiceType::class, [
+                'label'   => 'Statut',
+                'choices' => [
+                    'Non commencé' => Task::STATUS_NOT_STARTED,
+                    'En cours'     => Task::STATUS_IN_PROGRESS,
+                    'Terminé'      => Task::STATUS_DONE,
+                ],
+            ])
+
+            // Avancement (%) — utilisé par le slider dans le template
+            ->add('progressPercent', IntegerType::class, [
+                'label'      => 'Avancement (%)',
+                'required'   => true,
+                'empty_data' => '0',
+                'attr'       => ['min' => 0, 'max' => 100, 'step' => 10],
+            ])
+        ;
     }
 
-    public function configureOptions(OptionsResolver $r): void
+    public function configureOptions(OptionsResolver $resolver): void
     {
-        $r->setDefaults(['data_class' => Task::class]);
+        $resolver->setDefaults([
+            'data_class' => Task::class,
+        ]);
     }
 }

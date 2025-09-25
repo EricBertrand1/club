@@ -1,19 +1,196 @@
 {% extends 'base.html.twig' %}
 {% block title %}{{ mode == 'new' ? 'Nouvelle tâche' : 'Modifier tâche' }}{% endblock %}
+
+{% block stylesheets %}
+  {{ parent() }}
+  <style>
+    /* Carte et petites ombres sobres */
+    .card { box-shadow: 0 2px 6px rgba(15,23,42,.06); }
+
+    /* Barre d’avancement en 11 segments (0..100) */
+    .progress-grid {
+      display: grid;
+      grid-template-columns: repeat(11, 1fr);
+      width: 100%;
+      height: 44px;
+      border-radius: .5rem;
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,.08); /* cadre complet, y compris à droite */
+      background: #f3f4f6; /* fond neutre */
+    }
+    .progress-seg {
+      position: relative;
+      border-right: 1px solid rgba(0,0,0,.06);
+      background: #e5e7eb;
+      color: #111827;
+      font-weight: 600;
+      font-size: .9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      cursor: pointer;
+      padding: 0;
+    }
+    .progress-seg:last-child { border-right: none; }
+    .progress-seg span { pointer-events: none; opacity: .9; }
+
+    /* état actif (remplissage cumulatif) */
+    .progress-seg.active {
+      background: #0d6efd; /* Bootstrap primary, lisible */
+      color: #fff;
+    }
+
+    /* Labels + champs en ligne avec espace */
+    .field-inline { display:flex; align-items:center; gap:.5rem; }
+    .field-inline .form-label { margin-bottom:0; white-space:nowrap; }
+    .field-inline .form-control,
+    .field-inline .form-select { flex:1 1 auto; }
+  </style>
+{% endblock %}
+
 {% block body %}
-<div class="container py-4">
-  <h1 class="h4 mb-3">{{ mode == 'new' ? 'Nouvelle tâche' : 'Modifier tâche' }}</h1>
-  {{ form_start(form) }}
-    <div class="row g-3">
-      <div class="col-md-6">{{ form_row(form.name) }}</div>
-      <div class="col-md-6">{{ form_row(form.actors) }}</div>
-      <div class="col-md-4">{{ form_row(form.startDate) }}</div>
-      <div class="col-md-4">{{ form_row(form.endDate) }}</div>
-      <div class="col-md-4">{{ form_row(form.hoursPlanned) }}</div>
-      <div class="col-md-6">{{ form_row(form.status) }}</div>
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0">{{ mode == 'new' ? 'Nouvelle tâche' : 'Modifier tâche' }}</h1>
+    <div class="d-flex gap-2">
+      {% if mode == 'edit' and task is defined and task.id %}
+        <form method="post"
+              action="{{ path('tasks_delete', {id: task.id}) }}"
+              onsubmit="return confirm('Supprimer définitivement cette tâche ?');">
+          <input type="hidden" name="_token" value="{{ csrf_token('delete_task_' ~ task.id) }}">
+          <button class="btn btn-outline-danger">Supprimer tâche</button>
+        </form>
+      {% endif %}
+      <a href="{{ path('projets_index') }}" class="btn btn-outline-secondary">Retour</a>
     </div>
-    <button class="btn btn-primary mt-3">Enregistrer</button>
-    <a href="{{ path('projets_index') }}" class="btn btn-outline-secondary mt-3">Annuler</a>
-  {{ form_end(form) }}
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      {{ form_start(form) }}
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="field-inline">
+              {{ form_label(form.name, null, {label_attr:{class:'form-label'}}) }}
+              {{ form_widget(form.name, {attr:{class:'form-control'}}) }}
+            </div>
+            {{ form_errors(form.name) }}
+          </div>
+
+          <div class="col-md-6">
+            <div class="field-inline">
+              {{ form_label(form.actors, null, {label_attr:{class:'form-label'}}) }}
+              {{ form_widget(form.actors, {attr:{class:'form-select'}}) }}
+            </div>
+            {{ form_errors(form.actors) }}
+          </div>
+
+          <div class="col-md-4">
+            <div class="field-inline">
+              {{ form_label(form.startDate, null, {label_attr:{class:'form-label'}}) }}
+              {{ form_widget(form.startDate, {attr:{class:'form-control'}}) }}
+            </div>
+            {{ form_errors(form.startDate) }}
+          </div>
+
+          <div class="col-md-4">
+            <div class="field-inline">
+              {{ form_label(form.endDate, null, {label_attr:{class:'form-label'}}) }}
+              {{ form_widget(form.endDate, {attr:{class:'form-control'}}) }}
+            </div>
+            {{ form_errors(form.endDate) }}
+          </div>
+
+          <div class="col-md-4">
+            <div class="field-inline">
+              {{ form_label(form.hoursPlanned, null, {label_attr:{class:'form-label'}}) }}
+              {{ form_widget(form.hoursPlanned, {attr:{class:'form-control'}}) }}
+            </div>
+            {{ form_errors(form.hoursPlanned) }}
+          </div>
+
+          <div class="col-md-6">
+            <div class="field-inline">
+              {{ form_label(form.status, null, {label_attr:{class:'form-label'}}) }}
+              {{ form_widget(form.status, {attr:{class:'form-select'}}) }}
+            </div>
+            {{ form_errors(form.status) }}
+          </div>
+
+          {# Avancement en paliers (0..100) #}
+          <div class="col-12">
+            <label class="form-label d-block">Avancement</label>
+
+            {# on garde le champ du form mais on le cache : c’est lui qui est soumis #}
+            <div class="d-none">
+              {{ form_widget(form.progressPercent, { attr: { 'data-progress-input': '1' } }) }}
+            </div>
+
+            <div class="progress-grid" data-progress>
+              {# 11 segments (0,10,...,100) #}
+              {% for n in 0..10 %}
+                <button type="button"
+                        class="progress-seg"
+                        data-idx="{{ n }}"
+                        data-percent="{{ n*10 }}"
+                        aria-pressed="false">
+                  <span>{{ n*10 }}%</span>
+                </button>
+              {% endfor %}
+            </div>
+
+            {{ form_errors(form.progressPercent) }}
+          </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+          <button class="btn btn-primary">Enregistrer</button>
+          <a href="{{ path('projets_index') }}" class="btn btn-outline-secondary">Annuler</a>
+        </div>
+      {{ form_end(form) }}
+    </div>
+  </div>
 </div>
+{% endblock %}
+
+{% block javascripts %}
+  {{ parent() }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const grid  = document.querySelector('[data-progress]');
+      const input = document.querySelector('[data-progress-input]');
+      if (!grid || !input) return;
+
+      const segs = Array.from(grid.querySelectorAll('.progress-seg')); // 11 segments (0..10)
+
+      function setPercent(p) {
+        let v = parseInt(p, 10);
+        if (isNaN(v)) v = 0;
+        v = Math.max(0, Math.min(100, v));
+        v = Math.round(v / 10) * 10;
+
+        input.value = String(v);
+
+        // nombre de segments actifs = v/10 + 1 (0% active le segment 0 uniquement)
+        const k = Math.floor(v / 10);
+        segs.forEach((seg, i) => {
+          const active = (i <= k);
+          seg.classList.toggle('active', active);
+          seg.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+      }
+
+      // init depuis la valeur serveur
+      setPercent(input.value || 0);
+
+      // clic segment => % = idx*10
+      segs.forEach((seg, i) => {
+        seg.addEventListener('click', () => setPercent(i * 10));
+      });
+
+      // si le champ caché change (validation), on reflète
+      input.addEventListener('change', () => setPercent(input.value || 0));
+    });
+  </script>
 {% endblock %}

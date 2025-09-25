@@ -4,45 +4,77 @@
 {% block stylesheets %}
   {{ parent() }}
   <style>
-    .projets-scope .gantt { display: flex; flex-direction: column; gap: 12px; }
-    .projets-scope .gantt-row { display: grid; grid-template-columns: 320px 1fr; align-items: center; gap: 12px; }
-    @media (max-width: 992px){ .projets-scope .gantt-row { grid-template-columns: 1fr; } }
+    /* compaction */
+    .projets-scope .card-header{padding:.5rem .75rem}
+    .projets-scope .card-body{padding:.75rem}
+    .projets-scope .gantt{display:flex;flex-direction:column;gap:8px}
 
-    .projets-scope .meta {
-      background: #f6f7fb; border: 1px solid #e9edf3; border-radius: .5rem; padding: .75rem .9rem;
+    /* Une rangée = 2 colonnes: [meta] | [track] */
+    .projets-scope .gantt-row{
+      display:grid;grid-template-columns:360px 1fr;align-items:center;gap:8px
     }
-    .projets-scope .meta .title a { font-weight: 600; color: #1f2937; text-decoration: none; }
-    .projets-scope .meta .sub { color: #6b7280; font-size: .9rem; }
-    .projets-scope .meta .actions a, .projets-scope .meta .actions button { font-size: .85rem; }
-
-    .projets-scope .track { display: flex; gap: 6px; width: 100%; min-height: 42px; }
-
-    .projets-scope .bar {
-      position: relative; display: flex; align-items: center; justify-content: center;
-      padding: 0 .6rem; border-radius: .5rem; color:#fff; font-weight:600; font-size:.9rem;
-      overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 48px;
-      cursor: grab; flex-basis: 0; /* important pour remplir toute la largeur */
+    @media (max-width:992px){
+      .projets-scope .gantt-row{grid-template-columns:1fr}
     }
-    .projets-scope .bar:active { cursor: grabbing; }
-    .projets-scope .bar::after { content:""; position:absolute; inset:0; border:1px solid rgba(255,255,255,.22); border-radius:.5rem; pointer-events:none; }
-    .projets-scope .bar.link { text-decoration: none; color:#fff; }
 
-    /* Palette sobre (couleurs différentes par tâche, cycliques) */
-    .projets-scope .bar.c0{ background:#0d6efd; }  /* primary   */
-    .projets-scope .bar.c1{ background:#6f42c1; }  /* purple    */
-    .projets-scope .bar.c2{ background:#20c997; }  /* teal      */
-    .projets-scope .bar.c3{ background:#fd7e14; }  /* orange    */
-    .projets-scope .bar.c4{ background:#198754; }  /* green     */
-    .projets-scope .bar.c5{ background:#dc3545; }  /* red       */
-    .projets-scope .bar.c6{ background:#0dcaf0; color:#052c65; } /* cyan + texte foncé */
-    .projets-scope .bar.c7{ background:#6c757d; }  /* secondary */
+    /* méta: grille interne 3 colonnes: [stack (titre+actions)] [thumb] [%] */
+    .projets-scope .meta{
+      background:#f6f7fb;border:1px solid #e9edf3;border-radius:.4rem;padding:.5rem .6rem;
+      display:grid;grid-template-columns:1fr auto auto;column-gap:.5rem;align-items:center;min-width:0;
+    }
+    .projets-scope .meta .title{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;min-width:0}
+    .projets-scope .meta .title a{font-weight:600;color:#1f2937;text-decoration:none;min-width:0;max-width:100%}
+    .projets-scope .meta .author{color:#6b7280;font-size:.9rem;white-space:nowrap}
+    .projets-scope .meta .actions{margin-top:.25rem;display:flex;gap:.25rem;flex-wrap:wrap}
+    .projets-scope .meta .actions a,.projets-scope .meta .actions button{font-size:.82rem;padding:.15rem .4rem}
 
-    /* Indication discrète du statut (en surcouche) */
-    .projets-scope .bar.st-done::after     { box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
-    .projets-scope .bar.st-prog::after     { outline: 2px dashed rgba(255,255,255,.35); outline-offset:-4px; }
-    .projets-scope .bar.st-not             { opacity: .95; }
+    /* vignette (au milieu de la méta) */
+    .projets-scope .thumb-wrap{display:flex;align-items:center;justify-content:center}
+    .projets-scope .thumb-btn{border:0;background:transparent;padding:0;cursor:pointer}
+    .projets-scope .thumb-img{
+      width:42px;height:42px;object-fit:cover;border-radius:.35rem;
+      border:1px solid #e5e7eb;box-shadow:0 1px 2px rgba(0,0,0,.05)
+    }
 
-    .projets-scope .card { box-shadow: 0 2px 6px rgba(15,23,42,.06); }
+    /* % projet (à droite dans la méta) */
+    .projets-scope .project-progress{
+      font-weight:700;font-size:1.6rem;line-height:1;min-width:82px;text-align:right;
+      padding:0 .25rem;white-space:nowrap;align-self:center;
+    }
+    .projets-scope .pct-red{color:#dc3545}
+    .projets-scope .pct-orange{color:#fd7e14}
+    .projets-scope .pct-green{color:#198754}
+
+    /* piste/tâches (colonne de droite) */
+    .projets-scope .track{display:flex;gap:4px;width:100%;min-height:32px}
+
+    /* barre tâche : fond pastel + couche "fill" foncée = avancement */
+    .projets-scope .bar{
+      position:relative;display:flex;align-items:center;justify-content:center;
+      padding:0 .5rem;border-radius:.4rem;font-weight:600;font-size:.85rem;
+      overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:48px;
+      cursor:grab;flex-basis:0;background:var(--bar-bg,#e5e7eb);border:1px solid rgba(0,0,0,.06)
+    }
+    .projets-scope .bar:active{cursor:grabbing}
+    .projets-scope .bar .fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:var(--bar-fill,#6b7280);z-index:0;pointer-events:none}
+    .projets-scope .bar .label{position:relative;z-index:1;pointer-events:none;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+    .projets-scope .bar.txt-light .label{color:#fff}
+    .projets-scope .bar.txt-dark .label{color:#111827;text-shadow:none}
+    .projets-scope .bar.link{text-decoration:none}
+    .projets-scope .bar.st-done{box-shadow:inset 0 0 0 2px rgba(255,255,255,.25)}
+    .projets-scope .bar.st-prog{outline:2px dashed rgba(0,0,0,.12);outline-offset:-4px}
+
+    .projets-scope .card{box-shadow:0 2px 6px rgba(15,23,42,.06)}
+
+    /* palette pastel + foncé */
+    .projets-scope .c0{--bar-bg:#e8f0fe;--bar-fill:#0d6efd}
+    .projets-scope .c1{--bar-bg:#efe9fb;--bar-fill:#6f42c1}
+    .projets-scope .c2{--bar-bg:#e6fbf4;--bar-fill:#20c997}
+    .projets-scope .c3{--bar-bg:#fff3e8;--bar-fill:#fd7e14}
+    .projets-scope .c4{--bar-bg:#e9f7ef;--bar-fill:#198754}
+    .projets-scope .c5{--bar-bg:#fdecee;--bar-fill:#dc3545}
+    .projets-scope .c6{--bar-bg:#e6fbff;--bar-fill:#0dcaf0}
+    .projets-scope .c7{--bar-bg:#eef1f3;--bar-fill:#6c757d}
   </style>
 {% endblock %}
 
@@ -50,46 +82,81 @@
 <div class="container-fluid py-4 projets-scope">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 m-0">Projets</h1>
-    <a class="btn btn-primary" href="{{ path('projets_new') }}">Nouveau projet</a>
+    <div class="d-flex gap-2">
+      {% set backUrl = app.request.headers.get('referer') ?: '/' %}
+      <a class="btn btn-outline-secondary" href="{{ backUrl }}">Quitter</a>
+      <a class="btn btn-primary" href="{{ path('app_home') }}">Nouveau projet</a>
+    </div>
   </div>
 
   {# ---------- MES PROJETS ---------- #}
-  <div class="card mb-4"><div class="card-header">Mes projets</div><div class="card-body">
+  <div class="card mb-3"><div class="card-header">Mes projets</div><div class="card-body">
     {% if projectsMine is not empty %}
       <div class="gantt">
         {% for p in projectsMine %}
+
+          {# % d'avancement projet (pondéré par hoursPlanned) #}
+          {% set totalHP = 0 %}{% set weighted = 0 %}
+          {% for t in p.tasks %}{% set hp = t.hoursPlanned ?: 1 %}{% set totalHP = totalHP + hp %}{% set weighted = weighted + (hp * (t.progressPercent ?? 0)) %}{% endfor %}
+          {% set projPct = totalHP > 0 ? (weighted / totalHP)|round(0, 'floor') : 0 %}
+          {% set projPctClass = projPct == 0 ? 'pct-red' : (projPct == 100 ? 'pct-green' : 'pct-orange') %}
+
           <div class="gantt-row" data-project-id="{{ p.id }}">
+            {# Colonne 1 = META (stack + thumb + % intégrés) #}
             <div class="meta">
-              <div class="title">
-                <a href="{{ path('projets_edit',{id:p.id}) }}">{{ p.name }}</a>
+              <div class="stack">
+                <div class="title">
+                  <a href="{{ path('projets_edit',{id:p.id}) }}">{{ p.name }}</a>
+                  <span class="author">— {{ p.author ? p.author.username : '—' }}</span>
+                </div>
+                <div class="actions">
+                  <a class="btn btn-sm btn-outline-primary" href="{{ path('tasks_new',{id:p.id}) }}">Ajouter tâche</a>
+                  <form method="post" action="{{ path('projets_delete',{id:p.id}) }}" onsubmit="return confirm('Supprimer le projet ?');" class="d-inline">
+                    <input type="hidden" name="_token" value="{{ csrf_token('delete_project_'~p.id) }}">
+                    <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+                  </form>
+                </div>
               </div>
-              <div class="sub">Auteur&nbsp;: {{ p.author ? p.author.username : '—' }}</div>
-              <div class="actions mt-2 d-flex gap-2">
-                <a class="btn btn-sm btn-outline-primary" href="{{ path('tasks_new',{id:p.id}) }}">Ajouter tâche</a>
-                <form method="post" action="{{ path('projets_delete',{id:p.id}) }}" onsubmit="return confirm('Supprimer le projet ?');">
-                  <input type="hidden" name="_token" value="{{ csrf_token('delete_project_'~p.id) }}">
-                  <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+
+              <div class="thumb-wrap">
+                <form class="m-0 p-0" method="post" action="{{ path('projets_thumbnail',{id:p.id}) }}" enctype="multipart/form-data">
+                  <input type="hidden" name="_token" value="{{ csrf_token('thumb_'~p.id) }}">
+                  <input type="file" name="thumbnail" accept="image/*" class="d-none js-thumb-input" data-project="{{ p.id }}">
+                  <button type="button" class="thumb-btn" data-project="{{ p.id }}" title="Changer l’illustration">
+                    {% if p.thumbnail %}
+                      <img class="thumb-img" src="{{ asset(p.thumbnail) }}" alt="Illustration projet">
+                    {% else %}
+                      <svg class="thumb-img" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="1" y="1" width="46" height="46" rx="6" fill="#eef2f7" stroke="#e5e7eb"/>
+                        <path d="M12 30l6-6 6 6 6-6 6 6" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="17" cy="18" r="3" fill="#cbd5e1"/>
+                      </svg>
+                    {% endif %}
+                  </button>
                 </form>
               </div>
+
+              <div class="project-progress {{ projPctClass }}">{{ projPct }}%</div>
             </div>
 
-            {# Palette pour couleurs cycliques #}
+            {# Colonne 2 = TRACK (sur la même ligne) #}
             {% set palette = ['c0','c1','c2','c3','c4','c5','c6','c7'] %}
-
             <div class="track" data-track data-project="{{ p.id }}">
               {% for t in p.tasks %}
                 {% set grow = (t.hoursPlanned ?: 1) %}
-                {% set statusCls = t.status == 'termine' ? 'st-done' : (t.status == 'en_cours' ? 'st-prog' : 'st-not') %}
+                {% set statusCls = t.status == 'termine' ? 'st-done' : (t.status == 'en_cours' ? 'st-prog' : '') %}
                 {% set colorCls  = palette[loop.index0 % palette|length] %}
+                {% set pct = t.progressPercent is defined and t.progressPercent is not null ? t.progressPercent : 0 %}
+                {% set txtCls = pct >= 50 ? 'txt-light' : 'txt-dark' %}
                 <a href="{{ path('tasks_edit',{id:t.id}) }}"
-                   class="bar link {{ colorCls }} {{ statusCls }}"
+                   class="bar link {{ colorCls }} {{ statusCls }} {{ txtCls }}"
                    draggable="true"
                    data-task-id="{{ t.id }}"
                    style="flex: {{ grow }} 1 0;">
-                  {{ t.name }}
+                  <span class="fill" style="width: {{ pct }}%;"></span>
+                  <span class="label">{{ t.name }}</span>
                 </a>
               {% endfor %}
-              {# 🔥 plus de barre .add-task ici #}
             </div>
           </div>
         {% endfor %}
@@ -104,37 +171,66 @@
     {% if projectsOthers is not empty %}
       <div class="gantt">
         {% for p in projectsOthers %}
+
+          {% set totalHP = 0 %}{% set weighted = 0 %}
+          {% for t in p.tasks %}{% set hp = t.hoursPlanned ?: 1 %}{% set totalHP = totalHP + hp %}{% set weighted = weighted + (hp * (t.progressPercent ?? 0)) %}{% endfor %}
+          {% set projPct = totalHP > 0 ? (weighted / totalHP)|round(0, 'floor') : 0 %}
+          {% set projPctClass = projPct == 0 ? 'pct-red' : (projPct == 100 ? 'pct-green' : 'pct-orange') %}
+
           <div class="gantt-row" data-project-id="{{ p.id }}">
             <div class="meta">
-              <div class="title">
-                <a href="{{ path('projets_edit',{id:p.id}) }}">{{ p.name }}</a>
+              <div class="stack">
+                <div class="title">
+                  <a href="{{ path('projets_edit',{id:p.id}) }}">{{ p.name }}</a>
+                  <span class="author">— {{ p.author ? p.author.username : '—' }}</span>
+                </div>
+                <div class="actions">
+                  <a class="btn btn-sm btn-outline-primary" href="{{ path('tasks_new',{id:p.id}) }}">Ajouter tâche</a>
+                  <form method="post" action="{{ path('projets_delete',{id:p.id}) }}" onsubmit="return confirm('Supprimer le projet ?');" class="d-inline">
+                    <input type="hidden" name="_token" value="{{ csrf_token('delete_project_'~p.id) }}">
+                    <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+                  </form>
+                </div>
               </div>
-              <div class="sub">Auteur&nbsp;: {{ p.author ? p.author.username : '—' }}</div>
-              <div class="actions mt-2 d-flex gap-2">
-                <a class="btn btn-sm btn-outline-primary" href="{{ path('tasks_new',{id:p.id}) }}">Ajouter tâche</a>
-                <form method="post" action="{{ path('projets_delete',{id:p.id}) }}" onsubmit="return confirm('Supprimer le projet ?');">
-                  <input type="hidden" name="_token" value="{{ csrf_token('delete_project_'~p.id) }}">
-                  <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+
+              <div class="thumb-wrap">
+                <form class="m-0 p-0" method="post" action="{{ path('projets_thumbnail',{id:p.id}) }}" enctype="multipart/form-data">
+                  <input type="hidden" name="_token" value="{{ csrf_token('thumb_'~p.id) }}">
+                  <input type="file" name="thumbnail" accept="image/*" class="d-none js-thumb-input" data-project="{{ p.id }}">
+                  <button type="button" class="thumb-btn" data-project="{{ p.id }}" title="Changer l’illustration">
+                    {% if p.thumbnail %}
+                      <img class="thumb-img" src="{{ asset(p.thumbnail) }}" alt="Illustration projet">
+                    {% else %}
+                      <svg class="thumb-img" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="1" y="1" width="46" height="46" rx="6" fill="#eef2f7" stroke="#e5e7eb"/>
+                        <path d="M12 30l6-6 6 6 6-6 6 6" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="17" cy="18" r="3" fill="#cbd5e1"/>
+                      </svg>
+                    {% endif %}
+                  </button>
                 </form>
               </div>
+
+              <div class="project-progress {{ projPctClass }}">{{ projPct }}%</div>
             </div>
 
-            {% set palette = ['c0','c1','c2','c3','c4','c5','c6','c7'] %}
-
             <div class="track" data-track data-project="{{ p.id }}">
+              {% set palette = ['c0','c1','c2','c3','c4','c5','c6','c7'] %}
               {% for t in p.tasks %}
                 {% set grow = (t.hoursPlanned ?: 1) %}
-                {% set statusCls = t.status == 'termine' ? 'st-done' : (t.status == 'en_cours' ? 'st-prog' : 'st-not') %}
+                {% set statusCls = t.status == 'termine' ? 'st-done' : (t.status == 'en_cours' ? 'st-prog' : '') %}
                 {% set colorCls  = palette[loop.index0 % palette|length] %}
+                {% set pct = t.progressPercent is defined and t.progressPercent is not null ? t.progressPercent : 0 %}
+                {% set txtCls = pct >= 50 ? 'txt-light' : 'txt-dark' %}
                 <a href="{{ path('tasks_edit',{id:t.id}) }}"
-                   class="bar link {{ colorCls }} {{ statusCls }}"
+                   class="bar link {{ colorCls }} {{ statusCls }} {{ txtCls }}"
                    draggable="true"
                    data-task-id="{{ t.id }}"
                    style="flex: {{ grow }} 1 0;">
-                  {{ t.name }}
+                  <span class="fill" style="width: {{ pct }}%;"></span>
+                  <span class="label">{{ t.name }}</span>
                 </a>
               {% endfor %}
-              {# 🔥 plus de barre .add-task ici non plus #}
             </div>
           </div>
         {% endfor %}
@@ -149,8 +245,9 @@
 {% block javascripts %}
   {{ parent() }}
   <script>
-    // Drag & Drop simple par ligne (réordonne les .bar.link uniquement)
+    // Drag & Drop simple par ligne + upload vignette
     document.addEventListener('DOMContentLoaded', function () {
+      // --- Drag & Drop ---
       document.querySelectorAll('[data-track]').forEach(function(track){
         let dragEl = null;
 
@@ -207,6 +304,23 @@
           body: JSON.stringify({projectId: projectId, order: order})
         }).catch(()=>{});
       }
+
+      // --- Upload vignette ---
+      document.querySelectorAll('.thumb-btn').forEach(btn=>{
+        btn.addEventListener('click', function(){
+          const id = this.dataset.project;
+          const input = document.querySelector('.js-thumb-input[data-project="'+id+'"]');
+          if (input) input.click();
+        });
+      });
+      document.querySelectorAll('.js-thumb-input').forEach(input=>{
+        input.addEventListener('change', function(){
+          if (this.files && this.files[0]) {
+            const form = this.closest('form');
+            if (form) form.submit();
+          }
+        });
+      });
     });
   </script>
 {% endblock %}

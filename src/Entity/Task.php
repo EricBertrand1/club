@@ -7,6 +7,7 @@ use App\Repository\TaskRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: TaskRepository::class)]
 class Task
@@ -15,6 +16,25 @@ class Task
     public const STATUS_IN_PROGRESS = 'en_cours';
     public const STATUS_DONE        = 'termine';
 
+    #[ORM\Column(name: 'progress_percent', type: 'smallint', options: ['unsigned'=>true, 'default'=>0])]
+        #[Assert\NotNull]
+        #[Assert\Range(min: 0, max: 100)]
+        private ?int $progressPercent = 0;
+
+        public function getProgressPercent(): int
+        {
+            return (int) ($this->progressPercent ?? 0);
+        }
+
+        public function setProgressPercent(?int $percent): self
+        {
+            $p = (int) ($percent ?? 0);
+            if ($p < 0)  { $p = 0; }
+            if ($p > 100){ $p = 100; }
+            $this->progressPercent = $p;
+            return $this;
+        }
+            
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]
     private ?int $id = null;
 
