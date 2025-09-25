@@ -1,0 +1,54 @@
+{% extends 'base.html.twig' %}
+{% block title %}Formation — {{ code }} — {{ label }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h5 m-0">Formation — {{ code }} — {{ label }}</h1>
+    <a class="btn btn-outline-secondary" href="{{ path('formation_index') }}">Quitter</a>
+  </div>
+
+  <div class="card">
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Formation</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for sub in subs %}
+          <tr onclick="location.href='{{ path('formation_show',{id: sub.id}) }}'" style="cursor:pointer">
+            <td>{{ sub.name }}</td>
+            <td class="text-end">
+              {# Afficher les boutons si l’utilisateur est admin OU éditeur de formation #}
+              {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_TRAINING_EDITOR') %}
+                <a
+                  href="{{ path('formation_show', { id: sub.id, edit: 1 }) }}"
+                  class="btn btn-sm btn-primary"
+                  onclick="event.stopPropagation();"
+                >Éditer</a>
+                <form
+                  method="post"
+                  action="{{ path('formation_delete',{id: sub.id}) }}"
+                  class="d-inline"
+                  onsubmit="event.stopPropagation(); return confirm('Supprimer ?');"
+                >
+                  <input type="hidden" name="_token" value="{{ csrf_token('formation_delete_'~sub.id) }}">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+                </form>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="2" class="text-muted">Aucune formation pour cette catégorie.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

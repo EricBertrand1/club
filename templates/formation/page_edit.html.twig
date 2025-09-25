@@ -1,0 +1,234 @@
+{% extends 'base.html.twig' %}
+{% block title %}Éditer — {{ subcategory.name }}{% endblock %}
+
+{% block stylesheets %}
+  {{ parent() }}
+  <style>
+    .f-edit .toolbar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid #e5e7eb;padding:.5rem}
+    .f-edit .toolbar .btn{margin-right:.25rem;margin-bottom:.25rem}
+    .f-edit .page{padding:1rem}
+    .f-edit .block{position:relative;border:1px dashed #cbd5e1;border-radius:.5rem;padding:.75rem;margin:.5rem 0;background:#f9fafb}
+    .f-edit .block .remove{position:absolute;top:6px;right:6px}
+    .f-edit .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center}
+    @media (max-width: 992px){ .f-edit .row{grid-template-columns:1fr} }
+    .f-edit textarea{width:100%;min-height:90px}
+    .f-edit input[type="text"]{width:100%}
+    .f-edit .img-holder{display:block;text-align:center;border:1px solid #e5e7eb;border-radius:.5rem;background:#fff;cursor:pointer;min-height:120px;padding:.5rem}
+    .f-edit .img-holder img{max-width:100%;height:auto}
+    .f-edit .hint{font-size:.85rem;color:#6b7280}
+  </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4 f-edit"
+     data-save-url="{{ path('formation_save', {id: page.id}) }}"
+     data-save-token="{{ save_token }}"
+     data-upload-url="{{ path('formation_upload') }}"
+     data-upload-token="{{ upload_token }}">
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h1 class="h5 m-0">Éditer la formation — {{ subcategory.name }}</h1>
+    <div class="d-flex gap-2">
+      <button class="btn btn-success" id="btn-save">Enregistrer</button>
+      <a class="btn btn-outline-secondary" href="{{ path('formation_show', {id: subcategory.id}) }}">Quitter</a>
+    </div>
+  </div>
+
+  <!-- Boîte à outils -->
+  <div class="toolbar mb-3">
+    <span class="me-2">Insérer :</span>
+    <button class="btn btn-sm btn-outline-secondary" data-add="chapter">Titre de chapitre</button>
+    <button class="btn btn-sm btn-outline-secondary" data-add="subchapter">Sous-titre</button>
+    <button class="btn btn-sm btn-outline-secondary" data-add="p-full">Paragraphe pleine largeur</button>
+    <button class="btn btn-sm btn-outline-secondary" data-add="img-full">Image pleine largeur</button>
+    <button class="btn btn-sm btn-outline-secondary" data-add="pair-lr">Paragraphe gauche / Image droite</button>
+    <button class="btn btn-sm btn-outline-secondary" data-add="pair-rl">Image gauche / Paragraphe droite</button>
+    <span class="hint ms-2">Clique sur une image pour la remplacer.</span>
+  </div>
+
+  <!-- Zone éditable -->
+  <div id="page" class="page"></div>
+
+  <!-- Templates de blocs -->
+  <template id="tpl-chapter">
+    <div class="block" data-type="chapter">
+      <button class="btn btn-sm btn-outline-danger remove" title="Supprimer">&times;</button>
+      <label class="form-label">Titre du chapitre</label>
+      <input type="text" class="form-control" data-field="title" placeholder="Titre…">
+    </div>
+  </template>
+
+  <template id="tpl-subchapter">
+    <div class="block" data-type="subchapter">
+      <button class="btn btn-sm btn-outline-danger remove" title="Supprimer">&times;</button>
+      <label class="form-label">Sous-titre</label>
+      <input type="text" class="form-control" data-field="title" placeholder="Sous-titre…">
+    </div>
+  </template>
+
+  <template id="tpl-p-full">
+    <div class="block" data-type="paragraph" data-layout="full">
+      <button class="btn btn-sm btn-outline-danger remove" title="Supprimer">&times;</button>
+      <label class="form-label">Paragraphe</label>
+      <textarea class="form-control" data-field="text" placeholder="Texte (HTML autorisé)"></textarea>
+    </div>
+  </template>
+
+  <template id="tpl-img-full">
+    <div class="block" data-type="image" data-layout="full">
+      <button class="btn btn-sm btn-outline-danger remove" title="Supprimer">&times;</button>
+      <label class="form-label d-block">Image (pleine largeur)</label>
+      <div class="img-holder" data-image><div class="hint">Cliquez pour choisir une image…</div></div>
+      <input type="hidden" data-field="imageUrl">
+    </div>
+  </template>
+
+  <template id="tpl-pair-lr">
+    <div class="block" data-type="pair" data-layout="lr">
+      <button class="btn btn-sm btn-outline-danger remove" title="Supprimer">&times;</button>
+      <div class="row">
+        <div>
+          <label class="form-label">Paragraphe (gauche)</label>
+          <textarea class="form-control" data-field="text" placeholder="Texte (HTML autorisé)"></textarea>
+        </div>
+        <div>
+          <label class="form-label d-block">Image (droite)</label>
+          <div class="img-holder" data-image><div class="hint">Cliquez pour choisir…</div></div>
+          <input type="hidden" data-field="imageUrl">
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-pair-rl">
+    <div class="block" data-type="pair" data-layout="rl">
+      <button class="btn btn-sm btn-outline-danger remove" title="Supprimer">&times;</button>
+      <div class="row">
+        <div>
+          <label class="form-label d-block">Image (gauche)</label>
+          <div class="img-holder" data-image><div class="hint">Cliquez pour choisir…</div></div>
+          <input type="hidden" data-field="imageUrl">
+        </div>
+        <div>
+          <label class="form-label">Paragraphe (droite)</label>
+          <textarea class="form-control" data-field="text" placeholder="Texte (HTML autorisé)"></textarea>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+  {{ parent() }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      const scope = document.querySelector('.f-edit');
+      const page  = document.getElementById('page');
+      const saveUrl = scope.dataset.saveUrl;
+      const saveTok = scope.dataset.saveToken;
+      const upUrl   = scope.dataset.uploadUrl;
+      const upTok   = scope.dataset.uploadToken;
+
+      // Blocs initiaux rendus par le serveur
+      const initial = {{ blocks|json_encode(constant('JSON_UNESCAPED_UNICODE'))|raw }};
+      initial.forEach(addBlockFromData);
+
+      // Toolbar
+      document.querySelectorAll('[data-add]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          switch(btn.dataset.add){
+            case 'chapter': addBlock('tpl-chapter'); break;
+            case 'subchapter': addBlock('tpl-subchapter'); break;
+            case 'p-full': addBlock('tpl-p-full'); break;
+            case 'img-full': addBlock('tpl-img-full'); break;
+            case 'pair-lr': addBlock('tpl-pair-lr'); break;
+            case 'pair-rl': addBlock('tpl-pair-rl'); break;
+          }
+        });
+      });
+
+      // Save
+      document.getElementById('btn-save').addEventListener('click', async ()=>{
+        const payload = { blocks: serialize() };
+        const r = await fetch(saveUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': saveTok },
+          body: JSON.stringify(payload)
+        });
+        if (r.ok) alert('Enregistré.'); else alert('Erreur de sauvegarde.');
+      });
+
+      // ---- helpers ----
+      function addBlock(tplId){
+        const tpl  = document.getElementById(tplId);
+        const node = tpl.content.firstElementChild.cloneNode(true);
+        attach(node);
+        page.appendChild(node);
+        return node;
+      }
+      function addBlockFromData(b){
+        let n;
+        if (b.type==='chapter')       n = addBlock('tpl-chapter'),    n.querySelector('[data-field="title"]').value = b.title||'';
+        else if (b.type==='subchapter') n = addBlock('tpl-subchapter'), n.querySelector('[data-field="title"]').value = b.title||'';
+        else if (b.type==='paragraph' && (b.layout||'full')==='full')
+          n = addBlock('tpl-p-full'),  n.querySelector('[data-field="text"]').value = b.text||'';
+        else if (b.type==='image' && (b.layout||'full')==='full'){
+          n = addBlock('tpl-img-full'); setImage(n, b.imageUrl||'');
+        }
+        else if (b.type==='pair'){
+          n = addBlock((b.layout||'lr')==='lr' ? 'tpl-pair-lr' : 'tpl-pair-rl');
+          n.querySelector('[data-field="text"]').value = b.text||'';
+          setImage(n, b.imageUrl||'');
+        }
+        if (n && b.layout) n.setAttribute('data-layout', b.layout);
+      }
+      function attach(node){
+        node.querySelector('.remove')?.addEventListener('click', ()=> node.remove());
+        node.querySelectorAll('[data-image]').forEach(holder=>{
+          holder.addEventListener('click', async ()=>{
+            const file = await pickFile();
+            if (!file) return;
+            const url = await upload(file);
+            if (url) setImage(node, url);
+          });
+        });
+      }
+      function setImage(block, url){
+        block.querySelector('[data-field="imageUrl"]').value = url;
+        block.querySelector('[data-image]').innerHTML = '<img src="{{ asset("") }}'+url+'" alt="">';
+      }
+      function serialize(){
+        const out = [];
+        page.querySelectorAll('.block').forEach(b=>{
+          const type   = b.dataset.type;
+          const layout = b.dataset.layout || 'full';
+          if (type==='chapter')     out.push({type, title: f('title')});
+          else if (type==='subchapter') out.push({type, title: f('title')});
+          else if (type==='paragraph')  out.push({type, layout, text: f('text')});
+          else if (type==='image')      out.push({type, layout, imageUrl: f('imageUrl')});
+          else if (type==='pair')       out.push({type, layout, text: f('text'), imageUrl: f('imageUrl')});
+          function f(name){ const el=b.querySelector('[data-field="'+name+'"]'); return el ? el.value : ''; }
+        });
+        return out;
+      }
+      function pickFile(){
+        return new Promise(res=>{
+          const i = document.createElement('input');
+          i.type = 'file'; i.accept = 'image/*';
+          i.onchange = ()=> res(i.files[0] || null);
+          i.click();
+        });
+      }
+      async function upload(file){
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('_token', '{{ upload_token }}');
+        const r = await fetch(upUrl, { method:'POST', body: fd });
+        if (!r.ok) { alert('Upload échoué'); return null; }
+        const j = await r.json();
+        return j.ok ? j.url : null;
+      }
+    });
+  </script>
+{% endblock %}

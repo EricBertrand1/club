@@ -1,0 +1,291 @@
+{% extends 'base.html.twig' %}
+{% block title %}Formation — {{ subcategory.name }}{% endblock %}
+
+{# Droits & URLs par défaut #}
+{% set canEdit   = canEdit|default(is_granted('ROLE_ADMIN') or is_granted('ROLE_TRAINING_EDITOR')) %}
+{% set uploadUrl = uploadUrl|default(path('formation_upload', {id: subcategory.id})) %}
+{% set saveUrl   = saveUrl|default(path('formation_save',   {id: subcategory.id})) %}
+
+{% block stylesheets %}
+  {{ parent() }}
+  <style>
+    .formation-toolbar{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e5e7eb;padding:.5rem .75rem;display:flex;gap:.5rem;align-items:center;justify-content:space-between}
+    .tool-buttons{display:flex;gap:.35rem;flex-wrap:wrap}
+    .tool-buttons .btn{padding:.3rem .5rem;font-size:.9rem}
+    .canvas{max-width:1000px;margin:1rem auto;display:flex;flex-direction:column;gap:12px}
+    .block{position:relative;border:1px dashed transparent;padding:.25rem;border-radius:.4rem}
+    .block.editing{border-color:#d1d5db}
+    .block .rm{position:absolute;right:.25rem;top:.25rem;z-index:2}
+    .p-full .content{min-height:80px;padding:8px;background:#fafafa;border-radius:.35rem;border:1px solid #eee}
+    .img-full img,.split img{max-width:100%;height:auto;border-radius:.35rem;border:1px solid #eee;display:block}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .split .text{min-height:80px;padding:8px;background:#fafafa;border-radius:.35rem;border:1px solid #eee}
+    .chapter{font-weight:700;font-size:1.4rem;margin:.5rem 0}
+    .subchapter{font-weight:600;font-size:1.15rem;margin:.25rem 0}
+    .placeholder{display:flex;align-items:center;justify-content:center;min-height:140px;background:#f3f4f6;border:1px dashed #cbd5e1;border-radius:.35rem;color:#6b7280;cursor:pointer}
+  </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+
+  {# Retour: on revient à la liste des sous-catégories de la même catégorie #}
+  {% set backUrl = path('formation_category', { code: subcategory.code }) %}
+
+  <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+    <h1 class="h5 m-0">Formation — {{ subcategory.name }}</h1>
+    <div class="d-flex gap-2">
+      {% if canEdit %}
+        <button id="btn-save" class="btn btn-primary">Enregistrer</button>
+      {% endif %}
+      <a class="btn btn-outline-secondary" href="{{ backUrl }}">Quitter</a>
+    </div>
+  </div>
+
+  {% if canEdit %}
+    <div class="formation-toolbar">
+      <div class="tool-buttons">
+        <button class="btn btn-outline-secondary" data-insert="chapter">+ Chapitre</button>
+        <button class="btn btn-outline-secondary" data-insert="subchapter">+ Sous-titre</button>
+        <button class="btn btn-outline-secondary" data-insert="p-full">+ Paragraphe (100%)</button>
+        <button class="btn btn-outline-secondary" data-insert="img-full">+ Image (100%)</button>
+        <button class="btn btn-outline-secondary" data-insert="left-text-right-img">+ Texte gauche / Image droite</button>
+        <button class="btn btn-outline-secondary" data-insert="left-img-right-text">+ Image gauche / Texte droite</button>
+      </div>
+      <small class="text-muted">Clique sur une image pour la remplacer • Icône poubelle pour supprimer</small>
+    </div>
+  {% endif %}
+
+  <div
+    id="canvas"
+    class="canvas"
+    data-upload-url="{{ uploadUrl }}"
+    data-save-url="{{ saveUrl }}"
+    data-edit="{{ canEdit ? '1' : '0' }}"
+  >
+    {# ——— Rendu initial des blocs ——— #}
+    {% for b in blocks %}
+      {% set t = b.type %}
+      {% if t == 'chapter' %}
+        <div class="block chapter {{ canEdit ? 'editing' : '' }}" data-type="chapter">
+          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
+          <span class="content" {{ canEdit ? 'contenteditable="true"' : '' }}>{{ b.text|e }}</span>
+        </div>
+
+      {% elseif t == 'subchapter' %}
+        <div class="block subchapter {{ canEdit ? 'editing' : '' }}" data-type="subchapter">
+          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
+          <span class="content" {{ canEdit ? 'contenteditable="true"' : '' }}>{{ b.text|e }}</span>
+        </div>
+
+      {% elseif t == 'p-full' %}
+        <div class="block p-full {{ canEdit ? 'editing' : '' }}" data-type="p-full">
+          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
+          <div class="content" {{ canEdit ? 'contenteditable="true"' : '' }}>{{ b.text|raw }}</div>
+        </div>
+
+      {% elseif t == 'img-full' %}
+        <div class="block img-full {{ canEdit ? 'editing' : '' }}" data-type="img-full">
+          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
+          {% if b.path %}
+            <img src="{{ asset(b.path) }}" alt="">
+          {% else %}
+            <div class="placeholder">Cliquez pour choisir une image…</div>
+          {% endif %}
+        </div>
+
+      {% elseif t == 'left-text-right-img' %}
+        <div class="block split {{ canEdit ? 'editing' : '' }}" data-type="left-text-right-img">
+          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
+          <div class="text" {{ canEdit ? 'contenteditable="true"' : '' }}>{{ b.text|raw }}</div>
+          <div class="img">
+            {% if b.path %}
+              <img src="{{ asset(b.path) }}" alt="">
+            {% else %}
+              <div class="placeholder">Cliquez pour choisir une image…</div>
+            {% endif %}
+          </div>
+        </div>
+
+      {% elseif t == 'left-img-right-text' %}
+        <div class="block split {{ canEdit ? 'editing' : '' }}" data-type="left-img-right-text">
+          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
+          <div class="img">
+            {% if b.path %}
+              <img src="{{ asset(b.path) }}" alt="">
+            {% else %}
+              <div class="placeholder">Cliquez pour choisir une image…</div>
+            {% endif %}
+          </div>
+          <div class="text" {{ canEdit ? 'contenteditable="true"' : '' }}>{{ b.text|raw }}</div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+  {{ parent() }}
+  {% if canEdit %}
+  <script>
+  (function () {
+    document.addEventListener('DOMContentLoaded', init);
+
+    function init() {
+      const $canvas = document.getElementById('canvas');
+      if (!$canvas) return;
+
+      const uploadUrl = $canvas.dataset.uploadUrl;
+      const saveUrl   = $canvas.dataset.saveUrl;
+
+      // Suppression par délégation (fonctionne pour tous les blocs, existants et futurs)
+      $canvas.addEventListener('click', function (e) {
+        const rm = e.target.closest('.rm');
+        if (rm) {
+          e.preventDefault(); e.stopPropagation();
+          const blk = rm.closest('.block');
+          if (blk) blk.remove();
+          return;
+        }
+      });
+
+      // Créateurs de blocs (tous livrés directement en mode édition + corbeille)
+      function mkChapter(){
+        const d=document.createElement('div');
+        d.className='block chapter editing'; d.dataset.type='chapter';
+        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><span class="content" contenteditable="true">Nouveau chapitre</span>';
+        return d;
+      }
+      function mkSub(){
+        const d=document.createElement('div');
+        d.className='block subchapter editing'; d.dataset.type='subchapter';
+        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><span class="content" contenteditable="true">Sous-titre</span>';
+        return d;
+      }
+      function mkP(){
+        const d=document.createElement('div');
+        d.className='block p-full editing'; d.dataset.type='p-full';
+        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><div class="content" contenteditable="true">Paragraphe…</div>';
+        return d;
+      }
+      function mkImgFull(){
+        const d=document.createElement('div');
+        d.className='block img-full editing'; d.dataset.type='img-full';
+        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><div class="placeholder">Cliquez pour choisir une image…</div>';
+        return d;
+      }
+      function mkSplitLTR(){
+        const d=document.createElement('div');
+        d.className='block split editing'; d.dataset.type='left-text-right-img';
+        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><div class="text" contenteditable="true">Texte…</div><div class="img"><div class="placeholder">Cliquez pour choisir une image…</div></div>';
+        return d;
+      }
+      function mkSplitRTL(){
+        const d=document.createElement('div');
+        d.className='block split editing'; d.dataset.type='left-img-right-text';
+        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><div class="img"><div class="placeholder">Cliquez pour choisir une image…</div></div><div class="text" contenteditable="true">Texte…</div>';
+        return d;
+      }
+
+      // Insertion via la toolbar
+      document.querySelectorAll('[data-insert]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          let node=null;
+          switch(btn.dataset.insert){
+            case 'chapter': node = mkChapter(); break;
+            case 'subchapter': node = mkSub(); break;
+            case 'p-full': node = mkP(); break;
+            case 'img-full': node = mkImgFull(); break;
+            case 'left-text-right-img': node = mkSplitLTR(); break;
+            case 'left-img-right-text': node = mkSplitRTL(); break;
+          }
+          if (node) { $canvas.appendChild(node); }
+        });
+      });
+
+      // Picker d’image (placeholder ou image cliquée)
+      function pickAndUpload(cb){
+        const input = document.createElement('input');
+        input.type='file'; input.accept='image/*';
+        input.onchange = async () => {
+          if (!input.files || !input.files[0]) return;
+          const fd = new FormData();
+          fd.append('file', input.files[0]);
+          try{
+            const res = await fetch(uploadUrl, {method:'POST', body: fd});
+            const data = await res.json();
+            if (data.ok && data.path){
+              cb(data.path, data.url || ('/'+data.path));
+            } else { alert('Upload échoué'); }
+          }catch(e){ alert('Erreur upload'); }
+        };
+        input.click();
+      }
+
+      $canvas.addEventListener('click', function(e){
+        if (e.target.closest('.rm')) return; // déjà géré
+        const ph   = e.target.closest('.placeholder');
+        const imgEl = e.target.tagName === 'IMG' ? e.target : null;
+        if (!ph && !imgEl) return;
+        e.preventDefault(); e.stopPropagation();
+
+        pickAndUpload((publicPath, url)=>{
+          if (ph){
+            const parent = ph.parentElement;
+            const image = document.createElement('img');
+            image.src = url;
+            parent.innerHTML = '';
+            parent.appendChild(image);
+          } else if (imgEl){
+            imgEl.src = url;
+          }
+        });
+      });
+
+      // Collecte & sauvegarde
+      function collect(){
+        const res = [];
+        $canvas.querySelectorAll('.block').forEach(b=>{
+          const type = b.dataset.type;
+          if (!type) return;
+          if (type === 'chapter' || type === 'subchapter'){
+            const text = (b.querySelector('.content')?.innerText ?? '').trim();
+            res.push({type, text});
+          } else if (type === 'p-full'){
+            const html = (b.querySelector('.content')?.innerHTML ?? '').trim();
+            res.push({type, text: html});
+          } else if (type === 'img-full'){
+            const p = b.querySelector('img')?.getAttribute('src') || '';
+            res.push({type, path: p.replace(/^\/+/, '')});
+          } else if (type === 'left-text-right-img'){
+            const html = (b.querySelector('.text')?.innerHTML ?? '').trim();
+            const p = b.querySelector('.img img')?.getAttribute('src') || '';
+            res.push({type, text: html, path: p.replace(/^\/+/, '')});
+          } else if (type === 'left-img-right-text'){
+            const html = (b.querySelector('.text')?.innerHTML ?? '').trim();
+            const p = b.querySelector('.img img')?.getAttribute('src') || '';
+            res.push({type, text: html, path: p.replace(/^\/+/, '')});
+          }
+        });
+        return res;
+      }
+
+      document.getElementById('btn-save')?.addEventListener('click', async ()=>{
+        const blocks = collect();
+        try{
+          const res = await fetch(saveUrl, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({blocks})
+          });
+          const data = await res.json();
+          if (data.ok){ alert('Contenu enregistré.'); }
+          else { alert('Erreur sauvegarde'); }
+        }catch(e){ alert('Erreur réseau'); }
+      });
+    }
+  })();
+  </script>
+  {% endif %}
+{% endblock %}

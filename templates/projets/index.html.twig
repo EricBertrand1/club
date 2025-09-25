@@ -83,9 +83,9 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 m-0">Projets</h1>
     <div class="d-flex gap-2">
-      {% set backUrl = app.request.headers.get('referer') ?: '/' %}
+      {% set backUrl = path('app_home') %}
       <a class="btn btn-outline-secondary" href="{{ backUrl }}">Quitter</a>
-      <a class="btn btn-primary" href="{{ path('app_home') }}">Nouveau projet</a>
+      <a class="btn btn-primary" href="{{ path('projets_new') }}">Nouveau projet</a>
     </div>
   </div>
 

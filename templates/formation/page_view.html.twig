@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+{% block title %}Formation — {{ subcategory.name }}{% endblock %}
+
+{% block stylesheets %}
+  {{ parent() }}
+  <style>
+    .f-page .block{margin:10px 0}
+    .f-page .chapter{font-size:1.25rem;font-weight:700;margin:16px 0 8px}
+    .f-page .subchapter{font-size:1.05rem;font-weight:700;margin:12px 0 6px}
+    .f-page .p{line-height:1.6}
+    .f-page .img{text-align:center}
+    .f-page .img img{max-width:100%;height:auto;border-radius:.5rem}
+    .f-page .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center}
+    @media (max-width: 992px){ .f-page .row{grid-template-columns:1fr} }
+  </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4 f-page">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 m-0">Formation — {{ subcategory.name }}</h1>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="{{ path('app_home') }}">Quitter</a>
+      {% if is_granted('ROLE_TRAINING_EDITOR') %}
+        <a class="btn btn-primary" href="{{ path('formation_edit_page', {id: subcategory.id}) }}">Éditer la formation</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% set chap = 0 %}{% set sub = 0 %}
+  {% for b in blocks %}
+    {% if b.type == 'chapter' %}
+      {% set chap = chap + 1 %}{% set sub = 0 %}
+      <div class="block chapter">{{ chap }}. {{ b.title }}</div>
+
+    {% elseif b.type == 'subchapter' %}
+      {% set sub = sub + 1 %}
+      <div class="block subchapter">{{ chap }}.{{ sub }} {{ b.title }}</div>
+
+    {% elseif b.type == 'paragraph' and (b.layout ?? 'full') == 'full' %}
+      <div class="block p">{{ b.text|raw }}</div>
+
+    {% elseif b.type == 'image' and (b.layout ?? 'full') == 'full' %}
+      <div class="block img"><img src="{{ asset(b.imageUrl) }}" alt=""></div>
+
+    {% elseif b.type == 'pair' %}
+      {% if (b.layout ?? 'lr') == 'lr' %}
+        <div class="block row">
+          <div class="p">{{ b.text|raw }}</div>
+          <div class="img"><img src="{{ asset(b.imageUrl) }}" alt=""></div>
+        </div>
+      {% else %}
+        <div class="block row">
+          <div class="img"><img src="{{ asset(b.imageUrl) }}" alt=""></div>
+          <div class="p">{{ b.text|raw }}</div>
+        </div>
+      {% endif %}
+    {% endif %}
+  {% else %}
+    <div class="text-muted">Aucun contenu pour le moment.</div>
+  {% endfor %}
+</div>
+{% endblock %}
