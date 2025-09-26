@@ -15,7 +15,10 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Component\Security\Csrf\CsrfToken;
 
+#[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
 class CastellumController extends AbstractController
 {
     private const LEVELS = ['base', 'avancé', 'expert'];
@@ -98,27 +101,94 @@ class CastellumController extends AbstractController
         return false;
     }
 
+    #[IsGranted('ROLE_USER')]
+    #[Route('/castellum/categorie/{code}', name: 'castellum_category', methods: ['GET'])]
+    public function categoryList(string $code, EntityManagerInterface $em): Response
+    {
+        $labels = [
+            '000'=>'Généralités : informatique','100'=>'Philosophie et psychologie : philosophie, psychologie',
+            '200'=>'Religions : religions','300'=>'Sciences sociales : droit, politique, sujets de société, scolarité',
+            '400'=>'Langues : conjugaison, vocabulaire, étymologie, expressions françaises',
+            '500'=>'Sciences pures : astronomie, biologie, chimie, physique, mathématiques, anatomie',
+            '600'=>'Technologie et sciences appliquées : matériaux, cuisine, boucherie, télécom, jardinage',
+            '700'=>'Arts et loisirs : architecture d’une église, musique, contes, chasse, jeu de la belote',
+            '800'=>'Littérature : /','900'=>'Histoire et géographie : histoire, géographie',
+        ];
+
+        $subs = $em->getRepository(CastellumSubcategory::class)
+            ->findBy(['code' => $code], ['name' => 'ASC']);
+
+        return $this->render('castellum/category.html.twig', [
+            'code'  => $code,
+            'label' => $labels[$code] ?? $code,
+            'subs'  => $subs,
+        ]);
+    }
+
     // -------------------------------------------------------------------
     //  Config test + préférences
     // -------------------------------------------------------------------
     #[IsGranted('ROLE_USER')]
     #[Route('/castellum', name: 'castellum_index', methods: ['GET','POST'])]
-    public function index(Request $request, SessionInterface $session, EntityManagerInterface $em): Response
-    {
-        if ($request->isMethod('POST') && $request->request->has('_token')) {
-            if (!$this->isCsrfTokenValid('castellum_start', $request->request->get('_token'))) {
-                throw $this->createAccessDeniedException('CSRF invalide');
+    public function index(
+        Request $request,
+        SessionInterface $session,
+        EntityManagerInterface $em,
+        CsrfTokenManagerInterface $csrf
+    ): Response {
+        // --- Démarre explicitement la session en GET pour stabiliser le token CSRF
+        if ($request->isMethod('GET') && $request->hasSession() && !$request->getSession()->isStarted()) {
+            $request->getSession()->start();
+        }
+
+        // --- POST = Lancement du test
+        if ($request->isMethod('POST')) {
+            // DEBUG: récupérer ce qui arrive vraiment
+            $postedToken = (string) $request->request->get('_token_castellum_start', '');
+            if ($postedToken === '') {
+                $postedToken = (string) $request->request->get('_token', '');
+            }
+            $expectedToken = $csrf->getToken('castellum_start')->getValue();
+            $method        = $request->getMethod();
+            $origin        = (string) $request->headers->get('origin', '');
+            $referer       = (string) $request->headers->get('referer', '');
+            $sessionId     = $request->hasSession() ? $request->getSession()->getId() : '(no session)';
+
+            if (!$this->isCsrfTokenValid('castellum_start', $postedToken)) {
+                // On nève AUCUNE exception ici -> on aide avec des flashs DEBUG puis redirect propre.
+                $this->addFlash(
+                    'warning',
+                    sprintf(
+                        'DEBUG CSRF: POSTED=%s… / EXPECTED=%s…',
+                        $postedToken ? substr($postedToken, 0, 10) : '(vide)',
+                        substr($expectedToken, 0, 10)
+                    )
+                );
+                $this->addFlash(
+                    'info',
+                    sprintf(
+                        'DEBUG REQ: METHOD=%s | ORIGIN=%s | REFERER=%s | SESSION=%s',
+                        $method ?: '(?)',
+                        $origin ?: '(none)',
+                        $referer ?: '(none)',
+                        $sessionId ?: '(none)'
+                    )
+                );
+                $this->addFlash('danger', 'CSRF invalide, merci de réessayer.');
+                return $this->redirectToRoute('castellum_index');
             }
 
+            // Lecture des champs
             $count = (int) $request->request->get('count', 20);
             if (!in_array($count, self::QUESTION_OPTIONS, true)) $count = 20;
 
             $level = (string) $request->request->get('level', 'base');
             if (!in_array($level, self::LEVELS, true)) $level = 'base';
 
-            $cats = $request->request->all('cats');
-            $subs = $request->request->all('subs');
+            $cats = $request->request->all('cats'); // ex: ['200','600']
+            $subs = $request->request->all('subs'); // ex: ['200'=>[1,2], '600'=>[9,11]]
 
+            // Constitution d’un “résumé” de sélection
             $selected = [];
             foreach ($cats as $code) {
                 if (isset(self::CATEGORY_LABELS[$code])) {
@@ -126,7 +196,7 @@ class CastellumController extends AbstractController
                 }
             }
             foreach ($subs as $code => $ids) {
-                $list = $em->getRepository(CastellumSubcategory::class)->findBy(['code' => $code, 'id' => $ids]);
+                $list  = $em->getRepository(CastellumSubcategory::class)->findBy(['code' => $code, 'id' => $ids]);
                 $names = array_map(fn($s) => $s->getName(), $list);
                 if (!isset($selected[$code])) {
                     $selected[$code] = ['label' => self::CATEGORY_LABELS[$code] ?? $code, 'subs' => []];
@@ -134,42 +204,67 @@ class CastellumController extends AbstractController
                 if ($names) $selected[$code]['subs'] = $names;
             }
 
+            // Sauvegarde préférences si utilisateur connecté
             if ($this->getUser()) {
                 $allSubIds = [];
-                foreach ($subs as $ids) foreach ((array)$ids as $id) if ($id !== '' && $id !== null) $allSubIds[] = (int)$id;
-
+                foreach ($subs as $ids) {
+                    foreach ((array)$ids as $id) {
+                        if ($id !== '' && $id !== null) $allSubIds[] = (int)$id;
+                    }
+                }
                 $pref = $em->getRepository(CastellumPreference::class)->findOneBy(['user' => $this->getUser()]);
-                if (!$pref) { $pref = (new \App\Entity\CastellumPreference())->setUser($this->getUser()); $em->persist($pref); }
-                $pref->setCategories($cats)->setSubcategories($allSubIds)->setLevel($level)->setCount($count)->touch();
+                if (!$pref) {
+                    $pref = (new \App\Entity\CastellumPreference())->setUser($this->getUser());
+                    $em->persist($pref);
+                }
+                $pref->setCategories($cats)
+                    ->setSubcategories($allSubIds)
+                    ->setLevel($level)
+                    ->setCount($count)
+                    ->touch();
                 $em->flush();
             }
 
-            $session->set('castellum.config', ['count'=>$count,'level'=>$level,'selected'=>$selected]);
+            // Mise en session de la config du test
+            $session->set('castellum.config', [
+                'count'    => $count,
+                'level'    => $level,
+                'selected' => $selected,
+            ]);
+
             return $this->redirectToRoute('castellum_test_start');
         }
 
+        // --- GET = affichage écran de config
         $subcatsByCode = [];
         foreach (array_keys(self::CATEGORY_LABELS) as $code) {
             $subcatsByCode[$code] = $em->getRepository(CastellumSubcategory::class)
-                ->createQueryBuilder('s')->andWhere('s.code = :c')->setParameter('c',$code)
-                ->orderBy('s.name','ASC')->getQuery()->getResult();
+                ->createQueryBuilder('s')
+                ->andWhere('s.code = :c')->setParameter('c',$code)
+                ->orderBy('s.name','ASC')
+                ->getQuery()->getResult();
         }
 
         $prefsCats=[]; $prefsSubIds=[]; $prefsLevel='base'; $prefsCount=20;
         if ($this->getUser()) {
             $pref = $em->getRepository(CastellumPreference::class)->findOneBy(['user'=>$this->getUser()]);
             if ($pref) {
-                $prefsCats = $pref->getCategories() ?? [];
+                $prefsCats   = $pref->getCategories() ?? [];
                 $prefsSubIds = $pref->getSubcategories() ?? [];
-                $prefsLevel = $pref->getLevel() ?? 'base';
-                $prefsCount = $pref->getCount() ?? 20;
+                $prefsLevel  = $pref->getLevel() ?? 'base';
+                $prefsCount  = $pref->getCount() ?? 20;
             }
         }
 
         return $this->render('castellum/index.html.twig', [
-            'labels'=>self::CATEGORY_LABELS,'options'=>self::QUESTION_OPTIONS,'levels'=>self::LEVELS,
-            'subcats'=>$subcatsByCode,'prefsCats'=>$prefsCats,'prefsSubIds'=>$prefsSubIds,
-            'prefsLevel'=>$prefsLevel,'prefsCount'=>$prefsCount,
+            'labels'     => self::CATEGORY_LABELS,
+            'options'    => self::QUESTION_OPTIONS,
+            'levels'     => self::LEVELS,
+            'subcats'    => $subcatsByCode,
+            'prefsCats'  => $prefsCats,
+            'prefsSubIds'=> $prefsSubIds,
+            'prefsLevel' => $prefsLevel,
+            'prefsCount' => $prefsCount,
         ]);
     }
 
@@ -288,10 +383,10 @@ class CastellumController extends AbstractController
 
         $qb=$em->getRepository(CastellumQuestion::class)->createQueryBuilder('q')
             ->andWhere('q.levelQuestion = :lvl')->setParameter('lvl',$level);
-        if ($subcatIds)      $qb->andWhere('q.subcategory IN (:subs)')->setParameter('subs',$subcatIds);
+        if ($subcatIds)         $qb->andWhere('q.subcategory IN (:subs)')->setParameter('subs',$subcatIds);
         elseif ($categoryCodes) $qb->andWhere('q.categoryCode IN (:codes)')->setParameter('codes',$categoryCodes);
 
-        $qIds=array_map(fn($row)=>(int)$row['id'],$qb->select('q.id')->getQuery()->getScalarResult());
+        $qIds=array_map(fn($row) => (int)$row['id'], $qb->select('q.id')->getQuery()->getScalarResult());
         if(!$qIds){ $this->addFlash('danger','Aucune question ne correspond à votre sélection.'); return $this->redirectToRoute('castellum_index'); }
 
         shuffle($qIds);
@@ -314,8 +409,6 @@ class CastellumController extends AbstractController
         /** @var CastellumQuestion|null $q */
         $q=$em->getRepository(CastellumQuestion::class)->find($qid);
         if(!$q) return $this->redirectToRoute('castellum_test_question',['pos'=>$pos+1]);
-
-        // ❌ plus de touch() ici : updated_at ne change PAS pendant le test
 
         $result=null;
         if ($request->isMethod('POST')) {
@@ -552,8 +645,6 @@ class CastellumController extends AbstractController
             'subcategory' => $question->getSubcategory(),
         ]);
     }
-
-
 
     #[Route('/castellum/question/{id}/delete', name: 'castellum_question_delete', methods: ['POST'])]
     public function deleteQuestion(Request $request, CastellumQuestion $question, EntityManagerInterface $em): Response

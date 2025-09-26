@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+{% block title %}Castellum — {{ code }} — {{ label }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h5 m-0">Castellum — {{ code }} — {{ label }}</h1>
+    <a class="btn btn-outline-secondary" href="{{ path('castellum_index') }}">Retour</a>
+  </div>
+
+  <div class="card">
+    <div class="card-body p-0">
+      <table class="table table-hover m-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Sous-catégorie</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for s in subs %}
+          <tr>
+            <td>{{ s.name }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="{{ path('castellum_questions', {id: s.id}) }}">Éditer Q/R</a>
+              <form method="post"
+                    action="{{ path('castellum_sub_delete', {id: s.id}) }}"
+                    class="d-inline"
+                    onsubmit="return confirm('Supprimer « {{ s.name }} » ?');">
+                <input type="hidden" name="_token" value="{{ csrf_token('castellum_sub_delete_' ~ s.id) }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="2" class="text-muted fst-italic">Aucune sous-catégorie.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,4 +1,4 @@
-{% extends 'base.html.twig' %}
+{% extends 'base.html.twig' %} 
 {% block title %}Castellum — Configurer un test{% endblock %}
 
 {% block body %}
@@ -10,7 +10,7 @@
   /* pastille "cat-chip" colorée pour chaque catégorie */
   .cat-chip{
     display:inline-block; padding:.35rem .55rem; border-radius:.5rem;
-    font-weight:600; line-height:1.1;
+    font-weight:600; line-height:1.1; text-decoration:none;
   }
   /* 0=noir 100=marron 200=rouge 300=orange 400=jaune 500=vert 600=bleu 700=violet 800=gris 900=blanc */
   .cat-000{ background:#000000; color:#ffffff; }            /* noir */
@@ -41,7 +41,9 @@
   {% for msg in app.flashes('danger') %}<div class="alert alert-danger">{{ msg }}</div>{% endfor %}
 
   <form id="castellum-form" method="post" action="{{ path('castellum_index') }}">
-    <input type="hidden" name="_token" value="{{ csrf_token('castellum_start') }}">
+    {# DEBUG: session et préfixe du token côté vue #}
+    <!-- DEBUG session={{ app.session.id }} token={{ csrf_token('castellum_start')|slice(0,10) }}... -->
+    <input type="hidden" name="_token_castellum_start" value="{{ csrf_token('castellum_start') }}">
 
     <div class="row g-3 mb-4">
       <div class="col-sm-4">
@@ -64,7 +66,10 @@
 
     <div class="mb-2">
       <h2 class="h5">Choisissez les catégories et/ou sous-catégories</h2>
-      <div class="text-muted small">Cochez une catégorie pour tout sélectionner ; ouvrez-la pour gérer ses sous-catégories et questions.</div>
+      <div class="text-muted small">
+        Cochez une catégorie pour tout sélectionner ; ouvrez-la pour gérer ses sous-catégories et questions.
+        Cliquez sur la pastille pour voir la liste des sous-catégories (une par ligne).
+      </div>
     </div>
 
     <div class="accordion" id="cats-accordion">
@@ -72,26 +77,36 @@
         {% set catId = 'cat-' ~ code %}
         <div class="accordion-item mb-2" id="{{ catId }}">
           <h2 class="accordion-header" id="head-{{ code }}">
-            <div class="cat-row d-flex align-items-center justify-content-between px-3 py-2"
-                data-target="#collapse-{{ code }}"
-                role="button" tabindex="0"
-                aria-controls="collapse-{{ code }}" aria-expanded="false">
-              <div class="form-check m-0">
+            <div
+              class="cat-row d-flex align-items-center justify-content-between px-3 py-2"
+              data-bs-toggle="collapse"
+              data-bs-target="#collapse-{{ code }}"
+              data-target="#collapse-{{ code }}"  {# fallback JS #}
+              role="button"
+              tabindex="0"
+              aria-controls="collapse-{{ code }}"
+              aria-expanded="false"
+            >
+              <div class="form-check m-0" data-no-toggle>
                 <input class="form-check-input me-2 cat-checkbox" type="checkbox"
-                      id="{{ catId }}-chk" name="cats[]" value="{{ code }}"
+                      id="cat-{{ code }}-chk" name="cats[]" value="{{ code }}"
                       {% if code in prefsCats %}checked{% endif %}>
-                <label class="form-check-label m-0" for="{{ catId }}-chk">
-                  <span class="cat-chip cat-{{ code }}">{{ code }} — {{ label }}</span>
+                <label class="form-check-label m-0" for="cat-{{ code }}-chk" data-no-toggle>
+                  <a class="cat-chip cat-{{ code }} cat-link text-decoration-none"
+                     href="{{ path('castellum_category', { code: code }) }}"
+                     onclick="event.stopPropagation()">
+                    {{ code }} — {{ label }}
+                  </a>
                 </label>
               </div>
-              {# rien à droite : toute la ligne (sauf .form-check) est cliquable #}
+              {# rien à droite #}
             </div>
           </h2>
 
           <div id="collapse-{{ code }}" class="accordion-collapse collapse" data-bs-parent="#cats-accordion">
             <div class="accordion-body">
 
-              <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
                 <div class="d-flex gap-2">
                   <button type="button" class="btn btn-sm btn-outline-secondary action-all" data-act="check" data-cat="{{ code }}">Tout cocher</button>
                   <button type="button" class="btn btn-sm btn-outline-secondary action-all" data-act="uncheck" data-cat="{{ code }}">Tout décocher</button>
@@ -114,11 +129,13 @@
               {% if list is empty %}
                 <div class="text-muted fst-italic">Aucune sous-catégorie.</div>
               {% else %}
-                <div class="row row-cols-1 row-cols-md-2 g-2">
+                {# --- UNE LIGNE PAR SOUS-CATÉGORIE --- #}
+                <table class="table table-sm align-middle m-0">
+                  <tbody>
                   {% for s in list %}
-                    <div class="col">
-                      <div class="d-flex align-items-center justify-content-between">
-                        <div class="form-check">
+                    <tr>
+                      <td>
+                        <div class="form-check m-0">
                           <input class="form-check-input sub-checkbox" type="checkbox"
                                  id="sub-{{ code }}-{{ s.id }}"
                                  name="subs[{{ code }}][]" value="{{ s.id }}"
@@ -126,20 +143,23 @@
                                  {% if s.id in prefsSubIds %}checked{% endif %}>
                           <label class="form-check-label" for="sub-{{ code }}-{{ s.id }}">{{ s.name }}</label>
                         </div>
-                        <div class="d-flex gap-2">
-                          <a class="btn btn-sm btn-outline-primary" href="{{ path('castellum_questions', {id: s.id}) }}">Éditer Q/R</a>
-                          <button type="button"
-                                  class="btn btn-sm btn-outline-danger sub-del"
-                                  data-url="{{ path('castellum_sub_delete', {id: s.id}) }}"
-                                  data-token="{{ csrf_token('castellum_sub_delete_' ~ s.id) }}"
-                                  data-name="{{ s.name }}">
-                            Supprimer
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                      </td>
+                      <td class="text-end">
+                        <a class="btn btn-sm btn-outline-primary" href="{{ path('castellum_questions', {id: s.id}) }}">
+                          Éditer Q/R
+                        </a>
+                        <form method="post"
+                              action="{{ path('castellum_sub_delete', {id: s.id}) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('Supprimer « {{ s.name }} » ?');">
+                          <input type="hidden" name="_token" value="{{ csrf_token('castellum_sub_delete_' ~ s.id) }}">
+                          <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+                        </form>
+                      </td>
+                    </tr>
                   {% endfor %}
-                </div>
+                  </tbody>
+                </table>
               {% endif %}
             </div>
           </div>
@@ -154,7 +174,7 @@ const CASTELLUM_PREFS_URL = "{{ path('castellum_prefs_save') }}";
 const CASTELLUM_PREFS_CSRF = "{{ csrf_token('castellum_prefs') }}";
 const USER_LOGGED_IN = {{ app.user ? 'true' : 'false' }};
 
-// ===== Helpers DOM existants =====
+// ===== Helpers DOM =====
 function subsOf(code){ return Array.from(document.querySelectorAll('.sub-checkbox[data-cat="'+code+'"]')); }
 function parentOf(code){ return document.getElementById('cat-'+code+'-chk'); }
 function updateParentState(code){
@@ -286,13 +306,14 @@ document.querySelectorAll('.cat-checkbox').forEach(cat => {
   updateParentState(code);
 });
 
-// --- Toggle collapse en cliquant la ligne.
+// --- Toggle collapse en cliquant la ligne (sauf case/label/lien pastille)
 document.querySelectorAll('.cat-row').forEach(row => {
-  const targetSel = row.getAttribute('data-target');
-  const target = document.querySelector(targetSel);
-
   function toggle() {
+    const sel = row.getAttribute('data-target') || row.getAttribute('data-bs-target');
+    if (!sel) return;
+    const target = document.querySelector(sel);
     if (!target) return;
+
     if (window.bootstrap && bootstrap.Collapse) {
       const c = bootstrap.Collapse.getOrCreateInstance(target);
       c.toggle();
@@ -304,13 +325,13 @@ document.querySelectorAll('.cat-row').forEach(row => {
   }
 
   row.addEventListener('click', (e) => {
-    if (e.target.closest('.form-check-input')) return;
-    if (e.target.closest('.form-check-label')) {
-      e.preventDefault();
-    }
+    if (e.target.closest('.form-check-input')) return;          // clic sur checkbox
+    if (e.target.closest('.form-check-label')) { e.preventDefault(); } // clic sur label => pas de toggle
+    if (e.target.closest('.cat-link')) return;                  // clic sur pastille/lien => nav, pas toggle
     toggle();
   });
 
+  // Accessibilité clavier
   row.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();

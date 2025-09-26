@@ -34,7 +34,11 @@ security:
 
   access_control:
 
-    - { path: ^/castellum, roles: ROLE_USER }
+    - { path: ^/login, roles: PUBLIC_ACCESS }
+    # Autoriser les utilisateurs "remember-me" sur tout Castellum
+    - { path: ^/castellum, roles: IS_AUTHENTICATED_REMEMBERED }
+    # (optionnel) Formation pareil
+    - { path: ^/formation, roles: IS_AUTHENTICATED_REMEMBERED }
     - { path: ^/projets, roles: IS_AUTHENTICATED_FULLY }
 
     # Exemples de restrictions :
