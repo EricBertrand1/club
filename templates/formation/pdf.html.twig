@@ -1,0 +1,92 @@
+{# templates/formation/pdf.html.twig #}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page { margin: 20mm 15mm; }
+    body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color:#111; }
+
+    h1 { font-size: 18px; margin: 0 0 10px 0; }
+
+    /* Indentation par type (équivalent 1vw / 4vw / 7vw) */
+    .block { margin: 0 0 8px 0; }
+    .block.chapter    { margin-left: 1%; }
+    .block.subchapter { margin-left: 4%; }
+    .block.p-full,
+    .block.img-full,
+    .block.split      { margin-left: 7%; }
+
+    .chapter .content    { font-weight: 700; font-size: 16px; }
+    .subchapter .content { font-weight: 600; font-size: 13px; }
+
+    .p-full .content { line-height: 1.4; }
+    .img-full img { max-width: 100%; height: auto; display: block; }
+
+    /* Dompdf ne supporte pas CSS Grid : on passe par un tableau */
+    table.split { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    table.split td { vertical-align: top; padding: 0 6px 0 0; }
+    table.split td:last-child { padding-right: 0; }
+    table.split .text { line-height: 1.4; }
+    table.split .img img { max-width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <h1>Formation — {{ subcategory.name }}</h1>
+
+  {% for b in blocks %}
+    {% set t = b.type %}
+    {% if t == 'chapter' %}
+      <div class="block chapter">
+        <div class="chapter"><span class="content">{{ b.text|e }}</span></div>
+      </div>
+
+    {% elseif t == 'subchapter' %}
+      <div class="block subchapter">
+        <div class="subchapter"><span class="content">{{ b.text|e }}</span></div>
+      </div>
+
+    {% elseif t == 'p-full' %}
+      <div class="block p-full">
+        <div class="p-full"><div class="content">{{ b.text|raw }}</div></div>
+      </div>
+
+    {% elseif t == 'img-full' %}
+      <div class="block img-full">
+        {% if b.path %}
+          <img src="{{ absolute_url(asset(b.path)) }}" alt="">
+        {% endif %}
+      </div>
+
+    {% elseif t == 'left-text-right-img' %}
+      {# ratio optionnel (si enregistré), sinon 50/50 #}
+      {% set ratio = (b.ratio is defined ? b.ratio : 50) %}
+      {% set ratio = ratio < 10 ? 10 : (ratio > 90 ? 90 : ratio) %}
+      <div class="block split">
+        <table class="split">
+          <tr>
+            <td class="text" style="width: {{ ratio }}%;">{{ b.text|raw }}</td>
+            <td class="img"  style="width: {{ 100 - ratio }}%;">
+              {% if b.path %}<img src="{{ absolute_url(asset(b.path)) }}" alt="">{% endif %}
+            </td>
+          </tr>
+        </table>
+      </div>
+
+    {% elseif t == 'left-img-right-text' %}
+      {% set ratio = (b.ratio is defined ? b.ratio : 50) %}
+      {% set ratio = ratio < 10 ? 10 : (ratio > 90 ? 90 : ratio) %}
+      <div class="block split">
+        <table class="split">
+          <tr>
+            <td class="img"  style="width: {{ ratio }}%;">
+              {% if b.path %}<img src="{{ absolute_url(asset(b.path)) }}" alt="">{% endif %}
+            </td>
+            <td class="text" style="width: {{ 100 - ratio }}%;">{{ b.text|raw }}</td>
+          </tr>
+        </table>
+      </div>
+    {% endif %}
+  {% endfor %}
+</body>
+</html>

@@ -2,7 +2,10 @@
 
 namespace App\Controller;
 
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use App\Entity\CastellumSubcategory;
+use App\Entity\FormationContent;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Attribute\IsGranted;
@@ -11,6 +14,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+
 
 #[IsGranted('ROLE_USER')]
 #[Route('/formation')]
@@ -31,6 +35,35 @@ class FormationController extends AbstractController
     ];
 
     // ----------------- Helpers stockage -----------------
+
+    private function loadBlocksForPdf(CastellumSubcategory $sub, EntityManagerInterface $em): array
+    {
+        // Variante A : stockage dédié en table FormationContent (recommandé)
+        if (class_exists(FormationContent::class)) {
+            $content = $em->getRepository(FormationContent::class)
+                        ->findOneBy(['subcategory' => $sub]);
+            if ($content === null) return [];
+            $blocks = $content->getBlocks();
+            if (is_string($blocks)) {
+                $decoded = json_decode($blocks, true);
+                return is_array($decoded) ? $decoded : [];
+            }
+            return is_array($blocks) ? $blocks : [];
+        }
+
+        // Variante B : si tu avais un champ JSON directement sur la sous-catégorie
+        if (method_exists($sub, 'getFormationBlocks')) {
+            $blocks = $sub->getFormationBlocks();
+            if (is_string($blocks)) {
+                $decoded = json_decode($blocks, true);
+                return is_array($decoded) ? $decoded : [];
+            }
+            return is_array($blocks) ? $blocks : [];
+        }
+
+        return [];
+    }
+
 
     private function dataDir(): string
     {
@@ -103,6 +136,87 @@ class FormationController extends AbstractController
             'code'  => $code,
             'label' => $label,
             'subs'  => $subs,
+        ]);
+    }
+
+    #[Route('/sous-categorie/{id}/pdf', name: 'formation_pdf', methods: ['GET'])]
+    public function pdf(int $id, EntityManagerInterface $em): Response
+    {
+        /** @var CastellumSubcategory|null $sub */
+        $sub = $em->getRepository(CastellumSubcategory::class)->find($id);
+        if (!$sub) {
+            throw $this->createNotFoundException('Sous-catégorie introuvable.');
+        }
+
+        // ✅ Lire les blocs comme la page show() (var/formation/{id}.json)
+        $blocks = $this->readBlocks($sub->getId());
+
+        // (Facultatif) fallback si tu utilises aussi FormationContent un jour
+        if (!$blocks && class_exists(FormationContent::class)) {
+            $content = $em->getRepository(FormationContent::class)->findOneBy(['subcategory' => $sub]);
+            if ($content) {
+                $raw = $content->getBlocks();
+                if (is_string($raw))      $blocks = json_decode($raw, true) ?: [];
+                elseif (is_array($raw))   $blocks = $raw;
+            }
+        }
+
+        $html = $this->renderView('formation/pdf.html.twig', [
+            'subcategory' => $sub,
+            'blocks'      => $blocks,
+        ]);
+
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+
+        $dompdf = new Dompdf($options);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->loadHtml($html);
+        $dompdf->render();
+
+        return new Response(
+            $dompdf->output(),
+            200,
+            [
+                'Content-Type'        => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="formation-'.$sub->getId().'.pdf"',
+            ]
+        );
+    }
+
+
+    #[Route('/formation/sous-categorie/new', name: 'formation_sub_new', methods: ['POST'])]
+    #[IsGranted('ROLE_TRAINING_EDITOR')]
+    public function subNew(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $code  = (string) $request->request->get('code', '');
+        $name  = trim((string) $request->request->get('name', ''));
+        $token = $request->request->get('_token');
+
+        if (!$this->isCsrfTokenValid('formation_sub_new_'.$code, $token)) {
+            return new JsonResponse(['ok' => false, 'error' => 'csrf'], 400);
+        }
+        if ($code === '' || $name === '') {
+            return new JsonResponse(['ok' => false, 'error' => 'missing'], 422);
+        }
+
+        $repo   = $em->getRepository(CastellumSubcategory::class);
+        $exists = $repo->findOneBy(['code' => $code, 'name' => $name]);
+        if ($exists) {
+            return new JsonResponse(['ok' => false, 'error' => 'exists'], 409);
+        }
+
+        $sub = (new CastellumSubcategory())->setCode($code)->setName($name);
+        $em->persist($sub);
+        $em->flush();
+
+        return new JsonResponse([
+            'ok'   => true,
+            'id'   => $sub->getId(),
+            'name' => $sub->getName(),
+            'code' => $sub->getCode(),
         ]);
     }
 
