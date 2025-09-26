@@ -1,126 +1,160 @@
 {% extends 'base.html.twig' %}
 {% block title %}Formation — {{ subcategory.name }}{% endblock %}
 
-{# Droits & URLs par défaut #}
-{% set canEdit   = canEdit|default(is_granted('ROLE_ADMIN') or is_granted('ROLE_TRAINING_EDITOR')) %}
-{% set uploadUrl = uploadUrl|default(path('formation_upload', {id: subcategory.id})) %}
-{% set saveUrl   = saveUrl|default(path('formation_save',   {id: subcategory.id})) %}
+{# ---- Sécurités / valeurs par défaut ---- #}
+{% set canEdit = canEdit|default(false) %}
+{% set backUrl = path('formation_category', { code: subcategory.code }) %}
 
 {% block stylesheets %}
   {{ parent() }}
   <style>
-    .formation-toolbar{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e5e7eb;padding:.5rem .75rem;display:flex;gap:.5rem;align-items:center;justify-content:space-between}
+    .formation-scope{overflow-x: clip;}
+    .formation-toolbar{
+      position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e5e7eb;
+      padding:.5rem .75rem;display:flex;gap:.5rem;align-items:center;justify-content:space-between
+    }
     .tool-buttons{display:flex;gap:.35rem;flex-wrap:wrap}
     .tool-buttons .btn{padding:.3rem .5rem;font-size:.9rem}
-    .canvas{max-width:1000px;margin:1rem auto;display:flex;flex-direction:column;gap:12px}
-    .block{position:relative;border:1px dashed transparent;padding:.25rem;border-radius:.4rem}
+
+    .canvas{width:100%;max-width:none;margin:1rem 0;display:flex;flex-direction:column;gap:12px}
+
+    /* Grille : poignée + corps ; minmax(0,1fr) pour éviter le débordement */
+    .block{
+      background:#fff;border:1px dashed transparent;border-radius:.4rem;padding:.4rem;
+      display:grid;grid-template-columns:36px minmax(0,1fr);column-gap:8px;align-items:start;
+    }
     .block.editing{border-color:#d1d5db}
-    .block .rm{position:absolute;right:.25rem;top:.25rem;z-index:2}
+    .block .body{min-width:0;}
+    .gutter{display:flex;flex-direction:column;gap:6px;align-items:center;padding-top:2px}
+    .handle{
+      width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+      border:1px solid #e5e7eb;border-radius:.35rem;background:#f8fafc;cursor:grab;
+      font-size:1rem;line-height:1;user-select:none
+    }
+    .handle:active{cursor:grabbing}
+    .rm{width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+        border:1px solid #f1d5d8;border-radius:.35rem;background:#fff;color:#b4232a}
+    .rm:hover{background:#fff0f1}
+
     .p-full .content{min-height:80px;padding:8px;background:#fafafa;border-radius:.35rem;border:1px solid #eee}
     .img-full img,.split img{max-width:100%;height:auto;border-radius:.35rem;border:1px solid #eee;display:block}
-    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+    .split > *{min-width:0}
     .split .text{min-height:80px;padding:8px;background:#fafafa;border-radius:.35rem;border:1px solid #eee}
-    .chapter{font-weight:700;font-size:1.4rem;margin:.5rem 0}
-    .subchapter{font-weight:600;font-size:1.15rem;margin:.25rem 0}
+    .chapter{font-weight:700;font-size:1.4rem;margin:.2rem 0}
+    .subchapter{font-weight:600;font-size:1.15rem;margin:.15rem 0}
     .placeholder{display:flex;align-items:center;justify-content:center;min-height:140px;background:#f3f4f6;border:1px dashed #cbd5e1;border-radius:.35rem;color:#6b7280;cursor:pointer}
   </style>
 {% endblock %}
 
 {% block body %}
-<div class="container-fluid">
+<div class="formation-scope">
+  <div class="container-fluid">
 
-  {# Retour: on revient à la liste des sous-catégories de la même catégorie #}
-  {% set backUrl = path('formation_category', { code: subcategory.code }) %}
-
-  <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
-    <h1 class="h5 m-0">Formation — {{ subcategory.name }}</h1>
-    <div class="d-flex gap-2">
-      {% if canEdit %}
-        <button id="btn-save" class="btn btn-primary">Enregistrer</button>
-      {% endif %}
-      <a class="btn btn-outline-secondary" href="{{ backUrl }}">Quitter</a>
-    </div>
-  </div>
-
-  {% if canEdit %}
-    <div class="formation-toolbar">
-      <div class="tool-buttons">
-        <button class="btn btn-outline-secondary" data-insert="chapter">+ Chapitre</button>
-        <button class="btn btn-outline-secondary" data-insert="subchapter">+ Sous-titre</button>
-        <button class="btn btn-outline-secondary" data-insert="p-full">+ Paragraphe (100%)</button>
-        <button class="btn btn-outline-secondary" data-insert="img-full">+ Image (100%)</button>
-        <button class="btn btn-outline-secondary" data-insert="left-text-right-img">+ Texte gauche / Image droite</button>
-        <button class="btn btn-outline-secondary" data-insert="left-img-right-text">+ Image gauche / Texte droite</button>
+    <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+      <h1 class="h5 m-0">Formation — {{ subcategory.name }}</h1>
+      <div class="d-flex gap-2">
+        {# En lecture seule : bouton Signaler + Quitter #}
+        {% if not canEdit %}
+          <form method="post" action="{{ path('formation_report', { id: subcategory.id }) }}" class="d-inline">
+            <input type="hidden" name="_token" value="{{ csrf_token('formation_report_' ~ subcategory.id) }}">
+            <button class="btn btn-outline-warning" type="submit">Signaler</button>
+          </form>
+        {% endif %}
+        <a class="btn btn-outline-secondary" href="{{ backUrl }}">Quitter</a>
+        {# En mode édition : bouton Enregistrer #}
+        {% if canEdit %}
+          <button id="btn-save" class="btn btn-primary">Enregistrer</button>
+        {% endif %}
       </div>
-      <small class="text-muted">Clique sur une image pour la remplacer • Icône poubelle pour supprimer</small>
     </div>
-  {% endif %}
 
-  <div
-    id="canvas"
-    class="canvas"
-    data-upload-url="{{ uploadUrl }}"
-    data-save-url="{{ saveUrl }}"
-    data-edit="{{ canEdit ? '1' : '0' }}"
-  >
-    {# ——— Rendu initial des blocs ——— #}
-    {% for b in blocks %}
-      {% set t = b.type %}
-      {% if t == 'chapter' %}
-        <div class="block chapter {{ canEdit ? 'editing' : '' }}" data-type="chapter">
-          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
-          <span class="content" {{ canEdit ? 'contenteditable="true"' : '' }}>{{ b.text|e }}</span>
+    {% if canEdit %}
+      <div class="formation-toolbar">
+        <div class="tool-buttons">
+          <button class="btn btn-outline-secondary" data-insert="chapter">+ Chapitre</button>
+          <button class="btn btn-outline-secondary" data-insert="subchapter">+ Sous-titre</button>
+          <button class="btn btn-outline-secondary" data-insert="p-full">+ Paragraphe (100%)</button>
+          <button class="btn btn-outline-secondary" data-insert="img-full">+ Image (100%)</button>
+          <button class="btn btn-outline-secondary" data-insert="left-text-right-img">+ Texte gauche / Image droite</button>
+          <button class="btn btn-outline-secondary" data-insert="left-img-right-text">+ Image gauche / Texte droite</button>
         </div>
+        <small class="text-muted">Cliquez une image pour la remplacer • Icône 🗑 pour supprimer • Poignée ⋮⋮ pour déplacer</small>
+      </div>
+    {% endif %}
 
-      {% elseif t == 'subchapter' %}
-        <div class="block subchapter {{ canEdit ? 'editing' : '' }}" data-type="subchapter">
-          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
-          <span class="content" {{ canEdit ? 'contenteditable="true"' : '' }}>{{ b.text|e }}</span>
-        </div>
-
-      {% elseif t == 'p-full' %}
-        <div class="block p-full {{ canEdit ? 'editing' : '' }}" data-type="p-full">
-          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
-          <div class="content" {{ canEdit ? 'contenteditable="true"' : '' }}>{{ b.text|raw }}</div>
-        </div>
-
-      {% elseif t == 'img-full' %}
-        <div class="block img-full {{ canEdit ? 'editing' : '' }}" data-type="img-full">
-          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
-          {% if b.path %}
-            <img src="{{ asset(b.path) }}" alt="">
-          {% else %}
-            <div class="placeholder">Cliquez pour choisir une image…</div>
-          {% endif %}
-        </div>
-
-      {% elseif t == 'left-text-right-img' %}
-        <div class="block split {{ canEdit ? 'editing' : '' }}" data-type="left-text-right-img">
-          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
-          <div class="text" {{ canEdit ? 'contenteditable="true"' : '' }}>{{ b.text|raw }}</div>
-          <div class="img">
-            {% if b.path %}
-              <img src="{{ asset(b.path) }}" alt="">
+    <div id="canvas"
+         class="canvas"
+         data-edit="{{ canEdit ? '1' : '0' }}"
+         {% if canEdit %}
+           data-upload-url="{{ path('formation_upload', { id: subcategory.id }) }}"
+           data-save-url="{{ path('formation_save', { id: subcategory.id }) }}"
+         {% endif %}
+    >
+      {# Rendu des blocs #}
+      {% for b in blocks %}
+        {% set t = b.type %}
+        {% if t in ['chapter','subchapter','p-full','img-full','left-text-right-img','left-img-right-text'] %}
+          <div class="block {{ t }}{% if canEdit %} editing{% endif %}" data-type="{{ t }}">
+            {% if canEdit %}
+              <div class="gutter">
+                <div class="handle" draggable="true" title="Déplacer">⋮⋮</div>
+                <button type="button" class="rm" title="Supprimer">🗑</button>
+              </div>
             {% else %}
-              <div class="placeholder">Cliquez pour choisir une image…</div>
+              <div></div>
             {% endif %}
-          </div>
-        </div>
 
-      {% elseif t == 'left-img-right-text' %}
-        <div class="block split {{ canEdit ? 'editing' : '' }}" data-type="left-img-right-text">
-          {% if canEdit %}<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button>{% endif %}
-          <div class="img">
-            {% if b.path %}
-              <img src="{{ asset(b.path) }}" alt="">
-            {% else %}
-              <div class="placeholder">Cliquez pour choisir une image…</div>
-            {% endif %}
+            <div class="body">
+              {% if t == 'chapter' %}
+                <div class="chapter">
+                  <span class="content" {{ canEdit ? 'contenteditable=true' : '' }}>{{ b.text|e }}</span>
+                </div>
+              {% elseif t == 'subchapter' %}
+                <div class="subchapter">
+                  <span class="content" {{ canEdit ? 'contenteditable=true' : '' }}>{{ b.text|e }}</span>
+                </div>
+              {% elseif t == 'p-full' %}
+                <div class="p-full">
+                  <div class="content" {{ canEdit ? 'contenteditable=true' : '' }}>{{ b.text|raw }}</div>
+                </div>
+              {% elseif t == 'img-full' %}
+                <div class="img-full">
+                  {% if b.path %}
+                    <img src="{{ asset(b.path) }}" alt="">
+                  {% else %}
+                    <div class="placeholder">Cliquez pour choisir une image…</div>
+                  {% endif %}
+                </div>
+              {% elseif t == 'left-text-right-img' %}
+                <div class="split">
+                  <div class="text" {{ canEdit ? 'contenteditable=true' : '' }}>{{ b.text|raw }}</div>
+                  <div class="img">
+                    {% if b.path %}
+                      <img src="{{ asset(b.path) }}" alt="">
+                    {% else %}
+                      <div class="placeholder">Cliquez pour choisir une image…</div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% elseif t == 'left-img-right-text' %}
+                <div class="split">
+                  <div class="img">
+                    {% if b.path %}
+                      <img src="{{ asset(b.path) }}" alt="">
+                    {% else %}
+                      <div class="placeholder">Cliquez pour choisir une image…</div>
+                    {% endif %}
+                  </div>
+                  <div class="text" {{ canEdit ? 'contenteditable=true' : '' }}>{{ b.text|raw }}</div>
+                </div>
+              {% endif %}
+            </div>
           </div>
-          <div class="text" {{ canEdit ? 'contenteditable="true"' : '' }}>{{ b.text|raw }}</div>
-        </div>
-      {% endif %}
-    {% endfor %}
+        {% endif %}
+      {% endfor %}
+    </div>
+
   </div>
 </div>
 {% endblock %}
@@ -129,82 +163,113 @@
   {{ parent() }}
   {% if canEdit %}
   <script>
-  (function () {
-    document.addEventListener('DOMContentLoaded', init);
+  (() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const canvas = document.getElementById('canvas');
+      if (!canvas) return;
 
-    function init() {
-      const $canvas = document.getElementById('canvas');
-      if (!$canvas) return;
+      const uploadUrl = canvas.dataset.uploadUrl;
+      const saveUrl   = canvas.dataset.saveUrl;
 
-      const uploadUrl = $canvas.dataset.uploadUrl;
-      const saveUrl   = $canvas.dataset.saveUrl;
-
-      // Suppression par délégation (fonctionne pour tous les blocs, existants et futurs)
-      $canvas.addEventListener('click', function (e) {
-        const rm = e.target.closest('.rm');
-        if (rm) {
-          e.preventDefault(); e.stopPropagation();
-          const blk = rm.closest('.block');
-          if (blk) blk.remove();
-          return;
-        }
-      });
-
-      // Créateurs de blocs (tous livrés directement en mode édition + corbeille)
-      function mkChapter(){
-        const d=document.createElement('div');
-        d.className='block chapter editing'; d.dataset.type='chapter';
-        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><span class="content" contenteditable="true">Nouveau chapitre</span>';
-        return d;
-      }
-      function mkSub(){
-        const d=document.createElement('div');
-        d.className='block subchapter editing'; d.dataset.type='subchapter';
-        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><span class="content" contenteditable="true">Sous-titre</span>';
-        return d;
-      }
-      function mkP(){
-        const d=document.createElement('div');
-        d.className='block p-full editing'; d.dataset.type='p-full';
-        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><div class="content" contenteditable="true">Paragraphe…</div>';
-        return d;
-      }
-      function mkImgFull(){
-        const d=document.createElement('div');
-        d.className='block img-full editing'; d.dataset.type='img-full';
-        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><div class="placeholder">Cliquez pour choisir une image…</div>';
-        return d;
-      }
-      function mkSplitLTR(){
-        const d=document.createElement('div');
-        d.className='block split editing'; d.dataset.type='left-text-right-img';
-        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><div class="text" contenteditable="true">Texte…</div><div class="img"><div class="placeholder">Cliquez pour choisir une image…</div></div>';
-        return d;
-      }
-      function mkSplitRTL(){
-        const d=document.createElement('div');
-        d.className='block split editing'; d.dataset.type='left-img-right-text';
-        d.innerHTML='<button type="button" class="btn btn-sm btn-outline-danger rm">🗑</button><div class="img"><div class="placeholder">Cliquez pour choisir une image…</div></div><div class="text" contenteditable="true">Texte…</div>';
+      // Créateurs
+      const mk = {
+        chapter: () => tpl('chapter', `<span class="content" contenteditable="true">Nouveau chapitre</span>`),
+        subchapter: () => tpl('subchapter', `<span class="content" contenteditable="true">Sous-titre</span>`),
+        'p-full': () => tpl('p-full', `<div class="content" contenteditable="true">Paragraphe…</div>`),
+        'img-full': () => tpl('img-full', `<div class="placeholder">Cliquez pour choisir une image…</div>`),
+        'left-text-right-img': () => tpl('left-text-right-img', `<div class="split"><div class="text" contenteditable="true">Texte…</div><div class="img"><div class="placeholder">Cliquez pour choisir une image…</div></div></div>`),
+        'left-img-right-text': () => tpl('left-img-right-text', `<div class="split"><div class="img"><div class="placeholder">Cliquez pour choisir une image…</div></div><div class="text" contenteditable="true">Texte…</div></div>`),
+      };
+      function tpl(type, inner){
+        const d = document.createElement('div');
+        d.className = `block ${type} editing`;
+        d.dataset.type = type;
+        d.innerHTML =
+          `<div class="gutter">
+             <div class="handle" draggable="true" title="Déplacer">⋮⋮</div>
+             <button type="button" class="rm" title="Supprimer">🗑</button>
+           </div>
+           <div class="body">${inner}</div>`;
+        bindOne(d);
         return d;
       }
 
-      // Insertion via la toolbar
+      // Toolbar -> insertion
       document.querySelectorAll('[data-insert]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          let node=null;
-          switch(btn.dataset.insert){
-            case 'chapter': node = mkChapter(); break;
-            case 'subchapter': node = mkSub(); break;
-            case 'p-full': node = mkP(); break;
-            case 'img-full': node = mkImgFull(); break;
-            case 'left-text-right-img': node = mkSplitLTR(); break;
-            case 'left-img-right-text': node = mkSplitRTL(); break;
-          }
-          if (node) { $canvas.appendChild(node); }
+        btn.addEventListener('click', ()=> {
+          const t = btn.dataset.insert;
+          const node = mk[t]?.();
+          if (node) canvas.appendChild(node);
         });
       });
 
-      // Picker d’image (placeholder ou image cliquée)
+      // Suppression
+      function bindDelete(scope){
+        scope.querySelectorAll('.rm').forEach(btn=>{
+          btn.addEventListener('click', (e)=> {
+            e.stopPropagation();
+            btn.closest('.block')?.remove();
+          });
+        });
+      }
+
+      // Drag & drop (poignée)
+      let dragging = null;
+      function bindDnd(scope){
+        scope.querySelectorAll('.handle').forEach(h=>{
+          h.addEventListener('dragstart', (e)=> {
+            dragging = h.closest('.block');
+            dragging.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+          });
+        });
+        canvas.addEventListener('dragover', (e)=> {
+          e.preventDefault();
+          const after = getAfter(e.clientY);
+          if (!dragging) return;
+          if (after == null) canvas.appendChild(dragging);
+          else canvas.insertBefore(dragging, after);
+        });
+        canvas.addEventListener('drop', ()=> {
+          if (dragging) dragging.classList.remove('dragging');
+          dragging = null;
+        });
+        canvas.addEventListener('dragend', ()=> {
+          if (dragging) dragging.classList.remove('dragging');
+          dragging = null;
+        });
+      }
+      function getAfter(y){
+        const els = [...canvas.querySelectorAll('.block:not(.dragging)')];
+        let closest = null;
+        let offsetH = Number.NEGATIVE_INFINITY;
+        els.forEach(el=>{
+          const r = el.getBoundingClientRect();
+          const off = y - r.top - r.height/2;
+          if (off < 0 && off > offsetH) { offsetH = off; closest = el; }
+        });
+        return closest;
+      }
+
+      // Upload image
+      function bindImagePickers(scope){
+        scope.addEventListener('click', (e)=>{
+          const ph  = e.target.closest('.placeholder');
+          const img = e.target.tagName === 'IMG' ? e.target : null;
+          if (!ph && !img) return;
+          pickAndUpload((publicPath, url)=>{
+            if (ph){
+              const parent = ph.parentElement;
+              const image = document.createElement('img');
+              image.src = url;
+              parent.innerHTML = '';
+              parent.appendChild(image);
+            } else if (img){
+              img.src = url;
+            }
+          });
+        });
+      }
       function pickAndUpload(cb){
         const input = document.createElement('input');
         input.type='file'; input.accept='image/*';
@@ -213,78 +278,58 @@
           const fd = new FormData();
           fd.append('file', input.files[0]);
           try{
-            const res = await fetch(uploadUrl, {method:'POST', body: fd});
+            const res = await fetch(uploadUrl, { method:'POST', body: fd });
             const data = await res.json();
             if (data.ok && data.path){
               cb(data.path, data.url || ('/'+data.path));
             } else { alert('Upload échoué'); }
-          }catch(e){ alert('Erreur upload'); }
+          }catch{ alert('Erreur upload'); }
         };
         input.click();
       }
 
-      $canvas.addEventListener('click', function(e){
-        if (e.target.closest('.rm')) return; // déjà géré
-        const ph   = e.target.closest('.placeholder');
-        const imgEl = e.target.tagName === 'IMG' ? e.target : null;
-        if (!ph && !imgEl) return;
-        e.preventDefault(); e.stopPropagation();
-
-        pickAndUpload((publicPath, url)=>{
-          if (ph){
-            const parent = ph.parentElement;
-            const image = document.createElement('img');
-            image.src = url;
-            parent.innerHTML = '';
-            parent.appendChild(image);
-          } else if (imgEl){
-            imgEl.src = url;
-          }
-        });
-      });
-
-      // Collecte & sauvegarde
+      // Sauvegarde
       function collect(){
-        const res = [];
-        $canvas.querySelectorAll('.block').forEach(b=>{
+        const out = [];
+        canvas.querySelectorAll('.block').forEach(b=>{
           const type = b.dataset.type;
           if (!type) return;
           if (type === 'chapter' || type === 'subchapter'){
             const text = (b.querySelector('.content')?.innerText ?? '').trim();
-            res.push({type, text});
+            out.push({ type, text });
           } else if (type === 'p-full'){
             const html = (b.querySelector('.content')?.innerHTML ?? '').trim();
-            res.push({type, text: html});
+            out.push({ type, text: html });
           } else if (type === 'img-full'){
             const p = b.querySelector('img')?.getAttribute('src') || '';
-            res.push({type, path: p.replace(/^\/+/, '')});
+            out.push({ type, path: p.replace(/^\/+/,'') });
           } else if (type === 'left-text-right-img'){
             const html = (b.querySelector('.text')?.innerHTML ?? '').trim();
             const p = b.querySelector('.img img')?.getAttribute('src') || '';
-            res.push({type, text: html, path: p.replace(/^\/+/, '')});
+            out.push({ type, text: html, path: p.replace(/^\/+/,'') });
           } else if (type === 'left-img-right-text'){
             const html = (b.querySelector('.text')?.innerHTML ?? '').trim();
             const p = b.querySelector('.img img')?.getAttribute('src') || '';
-            res.push({type, text: html, path: p.replace(/^\/+/, '')});
+            out.push({ type, text: html, path: p.replace(/^\/+/,'') });
           }
         });
-        return res;
+        return out;
       }
-
       document.getElementById('btn-save')?.addEventListener('click', async ()=>{
         const blocks = collect();
         try{
           const res = await fetch(saveUrl, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({blocks})
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ blocks })
           });
           const data = await res.json();
-          if (data.ok){ alert('Contenu enregistré.'); }
-          else { alert('Erreur sauvegarde'); }
-        }catch(e){ alert('Erreur réseau'); }
+          if (data.ok) alert('Contenu enregistré.'); else alert('Erreur sauvegarde');
+        }catch{ alert('Erreur réseau'); }
       });
-    }
+
+      function bindOne(scope){ bindDelete(scope); bindImagePickers(scope); bindDnd(scope); }
+      bindOne(canvas);
+    });
   })();
   </script>
   {% endif %}

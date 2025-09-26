@@ -6,6 +6,23 @@
 <style>
   .cat-row { cursor: pointer; user-select: none; }
   .cat-row:hover { background: rgba(0,0,0,.03); }
+
+  /* pastille "cat-chip" colorée pour chaque catégorie */
+  .cat-chip{
+    display:inline-block; padding:.35rem .55rem; border-radius:.5rem;
+    font-weight:600; line-height:1.1;
+  }
+  /* 0=noir 100=marron 200=rouge 300=orange 400=jaune 500=vert 600=bleu 700=violet 800=gris 900=blanc */
+  .cat-000{ background:#000000; color:#ffffff; }            /* noir */
+  .cat-100{ background:#8B4513; color:#ffffff; }            /* marron */
+  .cat-200{ background:#b91c1c; color:#ffffff; }            /* rouge */
+  .cat-300{ background:#f97316; color:#ffffff; }            /* orange */
+  .cat-400{ background:#facc15; color:#111827; }            /* jaune -> texte foncé */
+  .cat-500{ background:#22c55e; color:#111827; }            /* vert  -> texte foncé */
+  .cat-600{ background:#3b82f6; color:#ffffff; }            /* bleu */
+  .cat-700{ background:#8b5cf6; color:#ffffff; }            /* violet */
+  .cat-800{ background:#6b7280; color:#ffffff; }            /* gris */
+  .cat-900{ background:#ffffff; color:#111827; border:1px solid #e5e7eb; } /* blanc + bordure */
 </style>
 
 <div class="container-fluid py-5">
@@ -64,14 +81,12 @@
                       id="{{ catId }}-chk" name="cats[]" value="{{ code }}"
                       {% if code in prefsCats %}checked{% endif %}>
                 <label class="form-check-label m-0" for="{{ catId }}-chk">
-                  <strong>{{ code }}</strong> — {{ label }}
+                  <span class="cat-chip cat-{{ code }}">{{ code }} — {{ label }}</span>
                 </label>
               </div>
               {# rien à droite : toute la ligne (sauf .form-check) est cliquable #}
             </div>
           </h2>
-
-
 
           <div id="collapse-{{ code }}" class="accordion-collapse collapse" data-bs-parent="#cats-accordion">
             <div class="accordion-body">
@@ -100,16 +115,15 @@
                 <div class="text-muted fst-italic">Aucune sous-catégorie.</div>
               {% else %}
                 <div class="row row-cols-1 row-cols-md-2 g-2">
-                  {# ✅ ICI on est bien DANS la boucle, donc s existe #}
                   {% for s in list %}
                     <div class="col">
                       <div class="d-flex align-items-center justify-content-between">
                         <div class="form-check">
-                            <input class="form-check-input sub-checkbox" type="checkbox"
-                            id="sub-{{ code }}-{{ s.id }}"
-                            name="subs[{{ code }}][]" value="{{ s.id }}"
-                            data-cat="{{ code }}"
-                            {% if s.id in prefsSubIds %}checked{% endif %}>
+                          <input class="form-check-input sub-checkbox" type="checkbox"
+                                 id="sub-{{ code }}-{{ s.id }}"
+                                 name="subs[{{ code }}][]" value="{{ s.id }}"
+                                 data-cat="{{ code }}"
+                                 {% if s.id in prefsSubIds %}checked{% endif %}>
                           <label class="form-check-label" for="sub-{{ code }}-{{ s.id }}">{{ s.name }}</label>
                         </div>
                         <div class="d-flex gap-2">
@@ -272,10 +286,7 @@ document.querySelectorAll('.cat-checkbox').forEach(cat => {
   updateParentState(code);
 });
 
-
 // --- Toggle collapse en cliquant la ligne.
-//     - Clic sur la case = laisse cocher/décocher.
-//     - Clic sur le label = n’alterne PAS la checkbox, ouvre/ferme seulement.
 document.querySelectorAll('.cat-row').forEach(row => {
   const targetSel = row.getAttribute('data-target');
   const target = document.querySelector(targetSel);
@@ -293,19 +304,13 @@ document.querySelectorAll('.cat-row').forEach(row => {
   }
 
   row.addEventListener('click', (e) => {
-    // 1) Clic sur la CASE -> ne rien faire ici
     if (e.target.closest('.form-check-input')) return;
-
-    // 2) Clic sur le LABEL -> empêcher le toggle de la checkbox
     if (e.target.closest('.form-check-label')) {
-      e.preventDefault(); // stoppe le "for" du label
+      e.preventDefault();
     }
-
-    // 3) Le reste de la ligne -> ouvrir/fermer
     toggle();
   });
 
-  // Accessibilité clavier (Entrée/Espace) sur la ligne
   row.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -313,7 +318,5 @@ document.querySelectorAll('.cat-row').forEach(row => {
     }
   });
 });
-
-
 </script>
 {% endblock %}

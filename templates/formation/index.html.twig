@@ -1,6 +1,27 @@
 {% extends 'base.html.twig' %}
 {% block title %}Formation — Catégories{% endblock %}
 
+{% block stylesheets %}
+  {{ parent() }}
+  <style>
+    .cat-chip{
+      display:inline-block; padding:.35rem .55rem; border-radius:.5rem;
+      font-weight:600; line-height:1.1;
+    }
+    /* 0=noir 100=marron 200=rouge 300=orange 400=jaune 500=vert 600=bleu 700=violet 800=gris 900=blanc */
+    .cat-000{ background:#000000; color:#ffffff; }            /* noir */
+    .cat-100{ background:#8B4513; color:#ffffff; }            /* marron */
+    .cat-200{ background:#b91c1c; color:#ffffff; }            /* rouge */
+    .cat-300{ background:#f97316; color:#ffffff; }            /* orange */
+    .cat-400{ background:#facc15; color:#111827; }            /* jaune -> texte foncé */
+    .cat-500{ background:#22c55e; color:#111827; }            /* vert  -> texte foncé */
+    .cat-600{ background:#3b82f6; color:#ffffff; }            /* bleu */
+    .cat-700{ background:#8b5cf6; color:#ffffff; }            /* violet */
+    .cat-800{ background:#6b7280; color:#ffffff; }            /* gris */
+    .cat-900{ background:#ffffff; color:#111827; border:1px solid #e5e7eb; } /* blanc + bordure */
+  </style>
+{% endblock %}
+
 {% block body %}
 <div class="container-fluid py-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -23,7 +44,7 @@
           {% set subs = byCode[code] ?? [] %}
           <tr onclick="location.href='{{ path('formation_category', { code: code }) }}'" style="cursor:pointer">
             <td>
-              <strong class="text-monospace">{{ code }}</strong>&nbsp;—&nbsp;{{ label }}
+              <span class="cat-chip cat-{{ code }}">{{ code }} — {{ label }}</span>
             </td>
             <td class="text-end">{{ subs|length }}</td>
           </tr>
