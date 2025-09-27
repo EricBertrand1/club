@@ -15,23 +15,22 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
-
 #[IsGranted('ROLE_USER')]
 #[Route('/formation')]
 class FormationController extends AbstractController
 {
     /** Libellés des catégories (mêmes codes que Castellum) */
     private const CATEGORY_LABELS = [
-        '000' => 'Généralités : informatique',
-        '100' => 'Philosophie et psychologie : philosophie, psychologie',
-        '200' => 'Religions : religions',
-        '300' => 'Sciences sociales : droit, politique, sujets de société, scolarité',
-        '400' => 'Langues : conjugaison, vocabulaire, étymologie, expressions françaises',
-        '500' => 'Sciences pures : astronomie, biologie, chimie, physique, mathématiques, anatomie',
-        '600' => 'Technologie et sciences appliquées : matériaux, cuisine, boucherie, télécom, jardinage',
-        '700' => 'Arts et loisirs : architecture d’une église, musique, contes, chasse, jeu de la belote',
-        '800' => 'Littérature : /',
-        '900' => 'Histoire et géographie : histoire, géographie',
+        '000' => 'Généralités',
+        '100' => 'Philosophie et psychologie',
+        '200' => 'Religions',
+        '300' => 'Sciences sociales',
+        '400' => 'Langues',
+        '500' => 'Sciences pures',
+        '600' => 'Technologie et sciences appliquées',
+        '700' => 'Arts et loisirs',
+        '800' => 'Littérature',
+        '900' => 'Histoire et géographie',
     ];
 
     // ----------------- Helpers stockage -----------------
@@ -63,7 +62,6 @@ class FormationController extends AbstractController
 
         return [];
     }
-
 
     private function dataDir(): string
     {
@@ -116,9 +114,11 @@ class FormationController extends AbstractController
             $byCode[$s->getCode()][] = $s;
         }
 
+        // Page multi-catégories : on n’affiche pas le bandeau
         return $this->render('formation/index.html.twig', [
             'labels' => self::CATEGORY_LABELS,
             'byCode' => $byCode,
+            // pas de catCode / catLabel ici
         ]);
     }
 
@@ -133,9 +133,12 @@ class FormationController extends AbstractController
         $label = self::CATEGORY_LABELS[$code] ?? $code;
 
         return $this->render('formation/category.html.twig', [
-            'code'  => $code,
-            'label' => $label,
-            'subs'  => $subs,
+            'code'     => $code,
+            'label'    => $label,
+            'subs'     => $subs,
+            // Bandeau catégorie :
+            'catCode'  => $code,
+            'catLabel' => $label,
         ]);
     }
 
@@ -164,6 +167,9 @@ class FormationController extends AbstractController
         $html = $this->renderView('formation/pdf.html.twig', [
             'subcategory' => $sub,
             'blocks'      => $blocks,
+            // Bandeau catégorie (si votre template PDF étend base.html.twig) :
+            'catCode'     => $sub->getCode(),
+            'catLabel'    => self::CATEGORY_LABELS[$sub->getCode()] ?? $sub->getCode(),
         ]);
 
         $options = new Options();
@@ -186,8 +192,8 @@ class FormationController extends AbstractController
         );
     }
 
-
-    #[Route('/formation/sous-categorie/new', name: 'formation_sub_new', methods: ['POST'])]
+    // ⚠️ Corrigé : pas de "/formation" ajouté une 2e fois (classe déjà préfixée)
+    #[Route('/sous-categorie/new', name: 'formation_sub_new', methods: ['POST'])]
     #[IsGranted('ROLE_TRAINING_EDITOR')]
     public function subNew(Request $request, EntityManagerInterface $em): JsonResponse
     {
@@ -246,6 +252,9 @@ class FormationController extends AbstractController
             'canEdit'     => $canEdit,
             'uploadUrl'   => $uploadUrl,
             'saveUrl'     => $saveUrl,
+            // Bandeau catégorie :
+            'catCode'     => $sub->getCode(),
+            'catLabel'    => self::CATEGORY_LABELS[$sub->getCode()] ?? $sub->getCode(),
         ]);
     }
 
@@ -273,7 +282,8 @@ class FormationController extends AbstractController
         ]);
     }
 
-    #[Route('/formation/sous-categorie/{id}/report', name: 'formation_report', methods: ['POST'])]
+    // ⚠️ Corrigé : pas de "/formation" ajouté une 2e fois
+    #[Route('/sous-categorie/{id}/report', name: 'formation_report', methods: ['POST'])]
     public function report(int $id, Request $request, EntityManagerInterface $em): Response
     {
         // CSRF

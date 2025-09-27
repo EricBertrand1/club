@@ -26,16 +26,16 @@ class CastellumController extends AbstractController
 
     // Codes + libellés (en dur)
     private const CATEGORY_LABELS = [
-        '000' => 'Généralités : informatique',
-        '100' => 'Philosophie et psychologie : philosophie, psychologie',
-        '200' => 'Religions : religions',
-        '300' => 'Sciences sociales : droit, politique, sujets de société, scolarité',
-        '400' => 'Langues : conjugaison, vocabulaire, étymologie, expressions françaises',
-        '500' => 'Sciences pures : astronomie, biologie, chimie, physique, mathématiques, anatomie',
-        '600' => 'Technologie et sciences appliquées : matériaux, cuisine, boucherie, télécom, jardinage',
-        '700' => 'Arts et loisirs : architecture d’une église, musique, contes, chasse, jeu de la belote',
-        '800' => 'Littérature : /',
-        '900' => 'Histoire et géographie : histoire, géographie',
+        '000' => 'Généralités',
+        '100' => 'Philosophie et psychologie',
+        '200' => 'Religions',
+        '300' => 'Sciences sociales',
+        '400' => 'Langues',
+        '500' => 'Sciences pures',
+        '600' => 'Technologie et sciences appliquées',
+        '700' => 'Arts et loisirs',
+        '800' => 'Littérature',
+        '900' => 'Histoire et géographie',
     ];
 
     // --------- Upload helpers ---------
@@ -78,6 +78,28 @@ class CastellumController extends AbstractController
         return null;
     }
 
+    // Ajoutez ce helper dans la classe CastellumController (section "helpers")
+    private function summarizeText(?string $html, int $max = 120): string
+    {
+        $txt = (string) $html;
+        // retire le HTML et normalise les espaces
+        $txt = strip_tags($txt);
+        $txt = preg_replace('/\s+/u', ' ', $txt);
+        $txt = trim($txt);
+        if ($txt === '') return '';
+        // tronque proprement
+        if (function_exists('mb_strimwidth')) {
+            return mb_strimwidth($txt, 0, $max, '…', 'UTF-8');
+        }
+        return strlen($txt) > $max ? substr($txt, 0, $max - 2).'…' : $txt;
+    }
+
+    /** Safe getter: retourne la donnée fichier du champ s’il existe, sinon null */
+    private function formFile($form, string $name): ?UploadedFile
+    {
+        return $form->has($name) ? $form->get($name)->getData() : null;
+    }
+
     // -----------------------
     //  Helpers de comparaison
     // -----------------------
@@ -101,6 +123,54 @@ class CastellumController extends AbstractController
         return false;
     }
 
+    // =========================
+    //  API : liste des questions
+    // =========================
+    #[Route('/castellum/api/questions', name: 'castellum_api_questions', methods: ['GET'])]
+    public function apiQuestions(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $subId   = (int) $request->query->get('subId', 0);
+        $chapter = $request->query->getInt('chapter', -1);
+        if ($subId <= 0) {
+            return new JsonResponse(['ok' => false, 'error' => 'bad_request'], 400);
+        }
+
+        $qb = $em->getRepository(CastellumQuestion::class)->createQueryBuilder('q')
+            ->andWhere('q.subcategory = :s')->setParameter('s', $subId);
+
+        if ($chapter >= 0) {
+            $qb->andWhere('q.formationChapter = :c')->setParameter('c', $chapter);
+        }
+
+        $qs = $qb->orderBy('q.updatedAt', 'DESC')->getQuery()->getResult();
+
+        $items = [];
+        foreach ($qs as $q) {
+            // 👉 On privilégie le texte de la question
+            $label = $this->summarizeText($q->getQuestionText(), 140);
+
+            // fallback si vide: on utilise le sujet, sinon un libellé par défaut
+            if ($label === '') {
+                $label = $q->getSubject() ?: ('Question #'.$q->getId());
+            }
+
+            // Optionnel: préfixe pour être explicite dans le menu contextuel
+            // $label = 'Q#'.$q->getId().' — '.$label;
+
+            $items[] = [
+                'id'    => $q->getId(),
+                'label' => $label,
+                // vous pouvez garder d’autres champs si le front en a besoin:
+                // 'subject' => $q->getSubject(),
+            ];
+        }
+
+        return new JsonResponse(['ok' => true, 'items' => $items]);
+    }
+
+    // =========================
+    //  Page catégorie (liste sous-cats)
+    // =========================
     #[IsGranted('ROLE_USER')]
     #[Route('/castellum/categorie/{code}', name: 'castellum_category', methods: ['GET'])]
     public function categoryList(string $code, EntityManagerInterface $em): Response
@@ -118,10 +188,24 @@ class CastellumController extends AbstractController
         $subs = $em->getRepository(CastellumSubcategory::class)
             ->findBy(['code' => $code], ['name' => 'ASC']);
 
+        // Pré-cocher selon les préférences de l’utilisateur
+        $prefsSubIds = [];
+        if ($this->getUser()) {
+            $pref = $em->getRepository(CastellumPreference::class)
+                ->findOneBy(['user'=>$this->getUser()]);
+            if ($pref) {
+                $prefsSubIds = $pref->getSubcategories() ?? [];
+            }
+        }
+
         return $this->render('castellum/category.html.twig', [
-            'code'  => $code,
-            'label' => $labels[$code] ?? $code,
-            'subs'  => $subs,
+            'code'        => $code,
+            'label'       => $labels[$code] ?? $code,
+            'subs'        => $subs,
+            'prefsSubIds' => $prefsSubIds,
+            // Bandeau :
+            'catCode'     => $code,
+            'catLabel'    => $labels[$code] ?? $code,
         ]);
     }
 
@@ -136,7 +220,7 @@ class CastellumController extends AbstractController
         EntityManagerInterface $em,
         CsrfTokenManagerInterface $csrf
     ): Response {
-        // --- Démarre explicitement la session en GET pour stabiliser le token CSRF
+        // Démarre explicitement la session en GET pour stabiliser le token CSRF
         if ($request->isMethod('GET') && $request->hasSession() && !$request->getSession()->isStarted()) {
             $request->getSession()->start();
         }
@@ -155,7 +239,6 @@ class CastellumController extends AbstractController
             $sessionId     = $request->hasSession() ? $request->getSession()->getId() : '(no session)';
 
             if (!$this->isCsrfTokenValid('castellum_start', $postedToken)) {
-                // On nève AUCUNE exception ici -> on aide avec des flashs DEBUG puis redirect propre.
                 $this->addFlash(
                     'warning',
                     sprintf(
@@ -345,12 +428,51 @@ class CastellumController extends AbstractController
         if(!in_array($count,$allowedCounts,true)) $count=20;
         if(!in_array($level,$allowedLevels,true)) $level='base';
 
-        $cats = array_values(array_unique(array_map('strval', (array)$request->request->all('cats'))));
-        $subsFlat = array_values(array_unique(array_map('intval', (array)$request->request->all('subsFlat'))));
+        $cats      = (array)$request->request->all('cats');       // optionnel
+        $subsFlat  = (array)$request->request->all('subsFlat');   // optionnel
+        $merge     = (bool)$request->request->get('merge', false);
+        $catCode   = (string)$request->request->get('cat', '');
 
         $pref = $em->getRepository(CastellumPreference::class)->findOneBy(['user'=>$this->getUser()]);
-        if(!$pref){ $pref=(new \App\Entity\CastellumPreference())->setUser($this->getUser()); $em->persist($pref); }
-        $pref->setCategories($cats)->setSubcategories($subsFlat)->setLevel($level)->setCount($count)->touch();
+        if(!$pref){ $pref=(new CastellumPreference())->setUser($this->getUser()); $em->persist($pref); }
+
+        // Met à jour count/level systématiquement
+        $pref->setCount($count)->setLevel($level);
+
+        if ($merge && $catCode !== '') {
+            // Fusion partielle : on remplace uniquement les sous-catégories de catCode
+            $existingSubs = $pref->getSubcategories() ?? [];
+
+            // Tous les IDs de sous-cat pour cette catégorie
+            $idsInCat = array_map(
+                fn($row)=>(int)$row['id'],
+                $em->getRepository(CastellumSubcategory::class)->createQueryBuilder('s')
+                    ->select('s.id')->andWhere('s.code = :c')->setParameter('c',$catCode)
+                    ->getQuery()->getScalarResult()
+            );
+
+            // On retire ceux de cette catégorie des préférences…
+            $filtered = array_values(array_diff($existingSubs, $idsInCat));
+
+            // …puis on ajoute ce que la page nous envoie
+            $newInCat = array_values(array_unique(array_map('intval', $subsFlat)));
+            $pref->setSubcategories(array_values(array_unique(array_merge($filtered, $newInCat))));
+
+            // Les catégories globales : si fournies on remplace, sinon on laisse comme avant
+            if (!empty($cats)) {
+                $pref->setCategories(array_values(array_unique(array_map('strval',$cats))));
+            }
+        } else {
+            // Mode complet (comme avant) : on remplace tout ce qui est fourni
+            if (!empty($cats)) {
+                $pref->setCategories(array_values(array_unique(array_map('strval',$cats))));
+            }
+            if (!empty($subsFlat)) {
+                $pref->setSubcategories(array_values(array_unique(array_map('intval',$subsFlat))));
+            }
+        }
+
+        $pref->touch();
         $em->flush();
 
         return new JsonResponse(['ok'=>true,'savedAt'=>(new \DateTimeImmutable())->format(\DateTimeInterface::ATOM)]);
@@ -427,7 +549,13 @@ class CastellumController extends AbstractController
         }
 
         return $this->render('castellum/test_question.html.twig', [
-            'q'=>$q,'pos'=>$pos,'total'=>$total,'result'=>$result,
+            'q'       => $q,
+            'pos'     => $pos,
+            'total'   => $total,
+            'result'  => $result,
+            // Bandeau (couleur de la catégorie de la Q en cours) :
+            'catCode'  => $q->getCategoryCode(),
+            'catLabel' => self::CATEGORY_LABELS[$q->getCategoryCode()] ?? $q->getCategoryCode(),
         ]);
     }
 
@@ -474,7 +602,12 @@ class CastellumController extends AbstractController
             ->orderBy('q.updatedAt','DESC')->getQuery()->getResult();
 
         return $this->render('castellum/questions.html.twig', [
-            'subcategory'=>$subcategory,'questions'=>$qs,'labels'=>self::CATEGORY_LABELS,
+            'subcategory' => $subcategory,
+            'questions'   => $qs,
+            'labels'      => self::CATEGORY_LABELS,
+            // Bandeau :
+            'catCode'     => $subcategory->getCode(),
+            'catLabel'    => self::CATEGORY_LABELS[$subcategory->getCode()] ?? $subcategory->getCode(),
         ]);
     }
 
@@ -484,64 +617,104 @@ class CastellumController extends AbstractController
     {
         $q=new CastellumQuestion();
         $q->setSubcategory($subcategory)->setCategoryCode($subcategory->getCode());
+
+        // Pré-remplir le chapitre si fourni par Formation
+        $q->setFormationChapter($request->query->getInt('chapter', $q->getFormationChapter() ?? 0));
+        $returnTo = (string) $request->query->get('return', '');
+
         $form=$this->createForm(CastellumQuestionType::class,$q);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            /** @var UploadedFile|null $file */
-            $file=$form->get('questionImageFile')->getData();
-            $remove=(bool)$form->get('removeImage')->getData();
-            if($remove && $q->getQuestionImage()){ @unlink($this->getParameter('kernel.project_dir').'/public/'.$q->getQuestionImage()); $q->setQuestionImage(null); }
-            if($file){
-                $original=pathinfo($file->getClientOriginalName(),PATHINFO_FILENAME);
-                $safe=$slugger->slug($original)->lower(); $newName=$safe.'-'.uniqid().'.'.$file->guessExtension();
-                @mkdir($this->uploadDir(),0777,true); $file->move($this->uploadDir(),$newName);
+            // Image principale (safe)
+            $imgFile = $this->formFile($form, 'questionImageFile');
+            $rmImage = ($request->request->get('removeImage') === '1');
+
+            if ($imgFile) {
+                @mkdir($this->uploadDir(),0777,true);
+                $original=pathinfo($imgFile->getClientOriginalName(),PATHINFO_FILENAME);
+                $safe=$slugger->slug($original)->lower(); $newName=$safe.'-'.uniqid().'.'.$imgFile->guessExtension();
+                $imgFile->move($this->uploadDir(),$newName);
                 $q->setQuestionImage($this->publicUploadPath($newName));
+            } elseif ($rmImage && $q->getQuestionImage()) {
+                $old = $q->getQuestionImage();
+                if ($old && $this->isLocalPublic($old)) {
+                    @unlink($this->filesystemPublic($old));
+                }
+                $q->setQuestionImage(null);
             }
 
-            /** @var UploadedFile|null $audio */
-            $audio=$form->get('questionAudioFile')->getData();
+            // Audio (safe)
+            $audio=$this->formFile($form, 'questionAudioFile');
+            $rmAudio = ($request->request->get('removeAudio') === '1');
+
             if($audio){
                 @mkdir($this->audioUploadDir(),0777,true);
                 $ext=$audio->guessExtension()?:'bin'; $new='q-audio-'.uniqid().'.'.$ext;
                 $audio->move($this->audioUploadDir(),$new);
                 $q->setQuestionAudio($this->publicAudioPath($new));
+            } elseif ($rmAudio && $q->getQuestionAudio()) {
+                $old = $q->getQuestionAudio();
+                if ($old && $this->isLocalPublic($old)) {
+                    @unlink($this->filesystemPublic($old));
+                }
+                $q->setQuestionAudio(null);
             }
 
+            // QCM images 1..9 (safe)
+            $rmMap = $request->request->all('removeQcmImage') ?? []; // ex: ['3'=>'1']
             for($i=1;$i<=9;$i++){
-                $field='qcmImageFile'.$i;
-                /** @var UploadedFile|null $f */
-                $f=$form->get($field)->getData();
+                $f = $this->formFile($form, 'qcmImageFile'.$i);
+                $setter='setQcmImage'.$i; $getter='getQcmImage'.$i;
+
                 if($f){
                     @mkdir($this->qcmUploadDir(),0777,true);
                     $ext=$f->guessExtension()?:'jpg'; $new='qcm-'.$i.'-'.uniqid().'.'.$ext;
                     $f->move($this->qcmUploadDir(),$new);
-                    $setter='setQcmImage'.$i; if(method_exists($q,$setter)) $q->$setter($this->publicQcmPath($new));
+                    if (method_exists($q,$setter)) $q->$setter($this->publicQcmPath($new));
+                } else {
+                    $askedRemove = isset($rmMap[(string)$i]) && $rmMap[(string)$i] === '1';
+                    if ($askedRemove && method_exists($q,$getter) && method_exists($q,$setter)) {
+                        $old = $q->$getter();
+                        if ($old && $this->isLocalPublic($old)) {
+                            @unlink($this->filesystemPublic($old));
+                        }
+                        $q->$setter(null);
+                    }
                 }
             }
 
             $q->touch();
             $em->persist($q); $em->flush();
             $this->addFlash('success','Question ajoutée.');
+
+            if ($returnTo !== '') { return $this->redirect($returnTo); }
             return $this->redirectToRoute('castellum_questions',['id'=>$subcategory->getId()]);
         }
 
         return $this->render('castellum/question_form.html.twig', [
-            'form'=>$form->createView(),'mode'=>'new','subcategory'=>$subcategory,
+            'form'        => $form->createView(),
+            'mode'        => 'new',
+            'subcategory' => $subcategory,
+            'returnTo'    => $returnTo,
+            // Bandeau :
+            'catCode'     => $subcategory->getCode(),
+            'catLabel'    => self::CATEGORY_LABELS[$subcategory->getCode()] ?? $subcategory->getCode(),
         ]);
     }
 
     #[Route('/castellum/question/{id}/edit', name: 'castellum_question_edit', methods: ['GET','POST'])]
     public function editQuestion(Request $request, CastellumQuestion $question, EntityManagerInterface $em, SluggerInterface $slugger): Response
     {
+        $returnTo = (string) $request->query->get('return', '');
+
         $form = $this->createForm(CastellumQuestionType::class, $question);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
 
-            // ----- Image principale -----
-            /** @var UploadedFile|null $imgFile */
-            $imgFile  = $form->get('questionImageFile')->getData();
+            // ----- Image principale (safe) -----
+            $imgFile  = $this->formFile($form, 'questionImageFile');
             $rmImage  = ($request->request->get('removeImage') === '1');
 
             if ($imgFile) {
@@ -551,7 +724,6 @@ class CastellumController extends AbstractController
                 $newName  = $safe.'-'.uniqid().'.'.$imgFile->guessExtension();
                 $imgFile->move($this->uploadDir(), $newName);
 
-                // supprime ancienne image locale si présente
                 $old = $question->getQuestionImage();
                 if ($old && $this->isLocalPublic($old)) {
                     @unlink($this->filesystemPublic($old));
@@ -565,9 +737,8 @@ class CastellumController extends AbstractController
                 $question->setQuestionImage(null);
             }
 
-            // ----- Audio -----
-            /** @var UploadedFile|null $audFile */
-            $audFile  = $form->get('questionAudioFile')->getData();
+            // ----- Audio (safe) -----
+            $audFile  = $this->formFile($form, 'questionAudioFile');
             $rmAudio  = ($request->request->get('removeAudio') === '1');
 
             if ($audFile) {
@@ -589,14 +760,11 @@ class CastellumController extends AbstractController
                 $question->setQuestionAudio(null);
             }
 
-            // ----- QCM images 1..10 -----
+            // ----- QCM images 1..9 (safe) -----
             $rmMap = $request->request->all('removeQcmImage') ?? []; // ex: ['3' => '1', '7' => '1']
 
             for ($i = 1; $i <= 9; $i++) {
-                $fileField = 'qcmImageFile'.$i;
-                /** @var UploadedFile|null $f */
-                $f = $form->get($fileField)->getData();
-
+                $f = $this->formFile($form, 'qcmImageFile'.$i);
                 $getter = 'getQcmImage'.$i;
                 $setter = 'setQcmImage'.$i;
 
@@ -636,13 +804,19 @@ class CastellumController extends AbstractController
             $em->flush();
 
             $this->addFlash('success', 'Question mise à jour.');
+
+            if ($returnTo !== '') { return $this->redirect($returnTo); }
             return $this->redirectToRoute('castellum_questions', ['id' => $question->getSubcategory()->getId()]);
         }
 
         return $this->render('castellum/question_form.html.twig', [
-            'form' => $form->createView(),
-            'mode' => 'edit',
+            'form'        => $form->createView(),
+            'mode'        => 'edit',
             'subcategory' => $question->getSubcategory(),
+            'returnTo'    => $returnTo,
+            // Bandeau :
+            'catCode'     => $question->getSubcategory()->getCode(),
+            'catLabel'    => self::CATEGORY_LABELS[$question->getSubcategory()->getCode()] ?? $question->getSubcategory()->getCode(),
         ]);
     }
 

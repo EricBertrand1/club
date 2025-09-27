@@ -5,7 +5,17 @@
 <div class="container-fluid py-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h5 m-0">Castellum — {{ code }} — {{ label }}</h1>
-    <a class="btn btn-outline-secondary" href="{{ path('castellum_index') }}">Retour</a>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="{{ path('castellum_index') }}">Retour</a>
+      <a class="btn btn-primary" href="{{ path('castellum_index') }}">Lancer le test</a>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary action-all" data-act="check">Tout cocher</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary action-all" data-act="uncheck">Tout décocher</button>
+    </div>
   </div>
 
   <div class="card">
@@ -20,7 +30,15 @@
         <tbody>
         {% for s in subs %}
           <tr>
-            <td>{{ s.name }}</td>
+            <td>
+              <div class="form-check m-0">
+                <input class="form-check-input sub-checkbox" type="checkbox"
+                       id="sub-{{ s.id }}"
+                       value="{{ s.id }}"
+                       {% if s.id in prefsSubIds %}checked{% endif %}>
+                <label class="form-check-label" for="sub-{{ s.id }}">{{ s.name }}</label>
+              </div>
+            </td>
             <td class="text-end">
               <a class="btn btn-sm btn-outline-primary" href="{{ path('castellum_questions', {id: s.id}) }}">Éditer Q/R</a>
               <form method="post"
@@ -40,4 +58,82 @@
     </div>
   </div>
 </div>
+
+<script>
+const CAT_CODE = "{{ code }}";
+const CASTELLUM_PREFS_URL  = "{{ path('castellum_prefs_save') }}";
+const CASTELLUM_PREFS_CSRF = "{{ csrf_token('castellum_prefs') }}";
+const USER_LOGGED_IN       = {{ app.user ? 'true' : 'false' }};
+
+function currentSelectionIds(){
+  return Array.from(document.querySelectorAll('.sub-checkbox:checked'))
+    .map(el => parseInt(el.value, 10));
+}
+
+let saveTimer = null;
+function triggerSave(){
+  if (!USER_LOGGED_IN) { toast.auth(); return; }
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(savePrefs, 250);
+}
+
+async function savePrefs(){
+  const subsFlat = currentSelectionIds();
+  try{
+    toast.saving();
+    const params = new URLSearchParams();
+    params.append('_token', CASTELLUM_PREFS_CSRF);
+    params.append('merge', '1');          // <<< mode fusion
+    params.append('cat', CAT_CODE);       // <<< ne remplace que cette catégorie
+    subsFlat.forEach(id => params.append('subsFlat[]', String(id)));
+
+    const resp = await fetch(CASTELLUM_PREFS_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded','X-CSRF-TOKEN': CASTELLUM_PREFS_CSRF},
+      body: params
+    });
+    if (resp.status === 401) { toast.auth(); return; }
+    if (!resp.ok) { toast.error(); return; }
+    const data = await resp.json();
+    if (data.ok) toast.saved(); else toast.error();
+  }catch(e){
+    console.error(e);
+    toast.error();
+  }
+}
+
+const toast = (() => {
+  const box = document.createElement('div');
+  box.className = 'position-fixed bottom-0 end-0 m-3';
+  box.style.zIndex = 1080;
+  box.innerHTML = `<div id="prefs-toast-inner" class="alert alert-secondary py-1 px-2 small mb-0 d-none"></div>`;
+  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
+  function show(cls, text){
+    const inner = document.getElementById('prefs-toast-inner');
+    if (!inner) return;
+    inner.className = 'alert py-1 px-2 small mb-0 ' + cls;
+    inner.textContent = text;
+    inner.classList.remove('d-none');
+    setTimeout(()=>inner.classList.add('d-none'), 1000);
+  }
+  return {
+    saving: () => show('alert-info', 'Enregistrement…'),
+    saved:  () => show('alert-success', 'Sauvegardé ✓'),
+    auth:   () => show('alert-warning', 'Connectez-vous pour sauvegarder.'),
+    error:  () => show('alert-danger', 'Erreur d’enregistrement.'),
+  };
+})();
+
+document.querySelectorAll('.sub-checkbox').forEach(chk=>{
+  chk.addEventListener('change', triggerSave);
+});
+
+document.querySelectorAll('.action-all').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const doCheck = btn.getAttribute('data-act') === 'check';
+    document.querySelectorAll('.sub-checkbox').forEach(c => c.checked = doCheck);
+    triggerSave();
+  });
+});
+</script>
 {% endblock %}

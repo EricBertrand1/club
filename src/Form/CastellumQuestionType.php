@@ -10,6 +10,7 @@ use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -65,6 +66,11 @@ class CastellumQuestionType extends AbstractType
             ->add('coordX', IntegerType::class, ['required'=>false, 'label'=>'Coordonnée X'])
             ->add('coordY', IntegerType::class, ['required'=>false, 'label'=>'Coordonnée Y'])
         ;
+
+$builder
+  ->add('removeImage', CheckboxType::class, ['mapped'=>false, 'required'=>false])
+  ->add('removeAudio', CheckboxType::class, ['mapped'=>false, 'required'=>false]);
+
 
         // QCM Textes 1..10
         for ($i=1; $i<=10; $i++) {

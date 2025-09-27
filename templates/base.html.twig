@@ -13,6 +13,31 @@
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
         {% block stylesheets %}
+            <style>
+            /* Bandeau coloré en haut de page */
+            .cat-banner{ position: sticky; top: 0; z-index: 1020; padding:.4rem 0; }
+            .cat-banner .container-fluid{ min-height: 36px; }
+
+            /* Chip visuel */
+            .cat-banner .cat-chip{
+            display:inline-block; padding:.25rem .5rem; border-radius:.5rem;
+            font-weight:600; line-height:1.1; border:1px solid rgba(0,0,0,.15);
+            background: rgba(255,255,255,.2);
+            }
+
+            /* Palette par code (identique à vos pastilles) */
+            .theme-000{ background:#000000; color:#ffffff; }
+            .theme-100{ background:#8B4513; color:#ffffff; }
+            .theme-200{ background:#b91c1c; color:#ffffff; }
+            .theme-300{ background:#f97316; color:#ffffff; }
+            .theme-400{ background:#facc15; color:#111827; } /* texte foncé */
+            .theme-500{ background:#22c55e; color:#111827; } /* texte foncé */
+            .theme-600{ background:#3b82f6; color:#ffffff; }
+            .theme-700{ background:#8b5cf6; color:#ffffff; }
+            .theme-800{ background:#6b7280; color:#ffffff; }
+            .theme-900{ background:#ffffff; color:#111827; border-bottom:1px solid #e5e7eb; }
+            </style>
+
         {% endblock %}
 
         {% block javascripts %}
@@ -20,6 +45,13 @@
         {% endblock %}
     </head>
     <body>
+        {% if catCode is defined and catCode %}
+        {% include 'partials/_cat_banner.html.twig' with {
+            code: catCode,
+            label: catLabel|default(null)
+        } %}
+        {% endif %}
+
         {% block body %}{% endblock %}
     </body>
 </html>

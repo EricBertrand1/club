@@ -1,0 +1,14 @@
+{# templates/partials/_cat_banner.html.twig #}
+{% set code = code|default(null) %}
+{% if code %}
+  <div class="cat-banner theme-{{ code }}">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <span class="cat-chip">{{ code }}</span>
+        {% if label %}<span class="fw-semibold">{{ label }}</span>{% endif %}
+      </div>
+      {# Espace actions contextuelles à droite si besoin #}
+      {% block cat_banner_actions %}{% endblock %}
+    </div>
+  </div>
+{% endif %}

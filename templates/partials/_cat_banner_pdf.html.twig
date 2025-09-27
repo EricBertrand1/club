@@ -1,0 +1,34 @@
+{# Bandeau couleur pour PDF (styles compatibles Dompdf) #}
+{% set colors = {
+  '000':'#000000',
+  '100':'#8B4513',
+  '200':'#b91c1c',
+  '300':'#f97316',
+  '400':'#facc15',
+  '500':'#22c55e',
+  '600':'#3b82f6',
+  '700':'#8b5cf6',
+  '800':'#6b7280',
+  '900':'#ffffff'
+} %}
+
+{# Utilise catCode/catLabel si fournis, sinon essaie depuis subcategory #}
+{% set code = catCode|default(subcategory.code|default('')) %}
+{% set label = catLabel|default('') %}
+
+{% set bg  = colors[code]|default('#6b7280') %}
+{% set txt = code in ['400','500','900'] ? '#111827' : '#ffffff' %}
+{% set brd = code == '900' ? '1px solid #e5e7eb' : 'none' %}
+
+<div style="
+  background-color: {{ bg }};
+  color: {{ txt }};
+  border: {{ brd }};
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 14px;
+  margin: 0 0 12px 0;
+">
+  {{ code }}{% if label %} — {{ label }}{% endif %}
+</div>

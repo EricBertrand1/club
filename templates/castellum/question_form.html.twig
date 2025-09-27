@@ -90,7 +90,11 @@
           <button class="btn btn-outline-secondary" type="submit">Dupliquer</button>
         </form>
       {% endif %}
-      <a class="btn btn-outline-secondary" href="{{ path('castellum_questions', { id: subcategory.id }) }}">Quitter</a>
+      {% if returnTo is defined and returnTo %}
+        <a class="btn btn-outline-secondary" href="{{ returnTo }}">Quitter</a>
+      {% else %}
+        <a class="btn btn-outline-secondary" href="{{ path('castellum_questions', { id: subcategory.id }) }}">Quitter</a>
+      {% endif %}
       <button class="btn btn-primary" type="submit" form="question-form">Enregistrer</button>
     </div>
   </div>
