@@ -1,153 +1,205 @@
 {% extends 'base.html.twig' %}
 {% block title %}Annuaire{% endblock %}
 
+{% block stylesheets %}
+  {{ parent() }}
+  <style>
+    .dir-card{
+      border:1px solid #e5e7eb; border-radius:.75rem; padding:1rem .95rem; background:#fff;
+      display:flex; gap:1rem; align-items:flex-start;
+    }
+    .dir-badge{
+      display:inline-block; padding:.15rem .5rem; border-radius:.35rem; font-size:.75rem; font-weight:600;
+      background:#f3f4f6; color:#111827; border:1px solid #e5e7eb;
+    }
+    .dir-meta{ display:flex; gap:.5rem; flex-wrap:wrap; }
+    .dir-actions{ display:flex; gap:.4rem; flex-wrap:wrap; }
+    .dir-stars{ font-size:1rem; letter-spacing:.05em; user-select:none; }
+    .dir-star{ color:#9ca3af; }            /* creuse */
+    .dir-star--full{ color:#FFD700; }      /* doré */
+    .dir-muted{ color:#6b7280; }
+    .dir-list{ display:grid; grid-template-columns:1fr; gap:.75rem; }
+    @media (min-width: 720px){ .dir-list{ grid-template-columns:1fr; gap:1rem; } }
+
+    .title-row{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    .site-link{ font-size:.9rem; }
+  </style>
+{% endblock %}
+
 {% block body %}
-
-{# ✨ Barre de recherche par description #}
-<form method="get" class="mb-3 d-flex gap-2 align-items-end">
-  <div class="flex-grow-1">
-    <label class="form-label">Recherche par description</label>
-    <input type="text" name="desc" class="form-control" value="{{ f.desc }}" placeholder="Mots clés à chercher dans la description">
-  </div>
-  <div>
-    <button class="btn btn-primary">Recherche</button>
-  </div>
-
-  {# On conserve les autres filtres en GET #}
-  <input type="hidden" name="cat"  value="{{ f.cat }}">
-  <input type="hidden" name="type" value="{{ f.type }}">
-  <input type="hidden" name="q"    value="{{ f.q }}">
-  <input type="hidden" name="min"  value="{{ f.min }}">
-</form>
-
-<div class="container py-5">
-
+<div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="page-title m-0">Annuaire</h1>
+    <h1 class="h4 m-0">Annuaire</h1>
     <div class="d-flex gap-2">
-      <a href="{{ path('annuaire_new') }}" class="btn btn-primary">Ajouter une adresse</a>
-      <a href="{{ path('app_home') }}" class="btn btn-outline-secondary" id="quit-btn">Quitter</a>
+      <a class="btn btn-outline-primary" href="{{ path('annuaire_new') }}">Nouvelle adresse</a>
+      <a class="btn btn-outline-secondary" href="{{ path('app_home') }}">Quitter</a>
     </div>
   </div>
 
-  {# Filtres haut (listes déroulantes) #}
-  <div class="row g-2 mb-3">
-    <div class="col-12 col-md-4">
-      <label class="form-label">Catégorie</label>
-      <select id="filter-category" class="form-select">
-        <option value="">(Toutes)</option>
-        {% for c in categories %}
-          <option value="{{ c }}">{{ c }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-12 col-md-4">
-      <label class="form-label">Type</label>
-      <select id="filter-type" class="form-select">
-        <option value="">(Tous)</option>
-        <option value="Web">Web</option>
-        <option value="Localisé">Localisé</option>
-      </select>
-    </div>
-  </div>
+  {# Flashs #}
+  {% for msg in app.flashes('success') %}
+    <div class="alert alert-success">{{ msg }}</div>
+  {% endfor %}
+  {% for msg in app.flashes('danger') %}
+    <div class="alert alert-danger">{{ msg }}</div>
+  {% endfor %}
 
-  <div class="table-responsive">
-    <table class="table table-sm table-striped align-middle" id="dir-table">
-      <thead class="table-light">
-        <tr>
-          <th>Catégorie<br><input class="form-control form-control-sm col-filter" data-col="0" placeholder="Filtrer..."></th>
-          <th>Type<br><input class="form-control form-control-sm col-filter" data-col="1" placeholder="Filtrer..."></th>
-          <th>Désignation<br><input class="form-control form-control-sm col-filter" data-col="2" placeholder="Filtrer..."></th>
-          <th>Nom<br><input class="form-control form-control-sm col-filter" data-col="3" placeholder="Filtrer..."></th>
-          <th>Prénom<br><input class="form-control form-control-sm col-filter" data-col="4" placeholder="Filtrer..."></th>
-          <th>Adresse<br><input class="form-control form-control-sm col-filter" data-col="5" placeholder="Filtrer..."></th>
-          <th>Code postal<br><input class="form-control form-control-sm col-filter" data-col="6" placeholder="Filtrer..."></th>
-          <th>Commune<br><input class="form-control form-control-sm col-filter" data-col="7" placeholder="Filtrer..."></th>
-          <th>Téléphone<br><input class="form-control form-control-sm col-filter" data-col="8" placeholder="Filtrer..."></th>
-          <th>Email<br><input class="form-control form-control-sm col-filter" data-col="9" placeholder="Filtrer..."></th>
-          <th>Site web<br><input class="form-control form-control-sm col-filter" data-col="10" placeholder="Filtrer..."></th>
-          <th>Note / 5<br><input class="form-control form-control-sm col-filter" data-col="11" placeholder="Filtrer..."></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for e in entries %}
-        <tr class="clickable-row" data-href="{{ path('annuaire_edit', {id: e.id}) }}" style="cursor:pointer;">
-            <td>{{ e.category }}</td>
-            <td>{{ e.type }}</td>
-            <td>{{ e.designation }}</td>
-            <td>{{ e.lastName }}</td>
-            <td>{{ e.firstName }}</td>
-            <td>{{ e.address }}</td>
-            <td>{{ e.postalCode }}</td>
-            <td>{{ e.city }}</td>
-            <td>{{ e.phone }}</td>
-            <td>
-            {% if e.email %}
-                <a href="mailto:{{ e.email }}" onclick="event.stopPropagation();">{{ e.email }}</a>
-            {% endif %}
-            </td>
-            <td>
-            {% if e.website %}
-                <a href="{{ e.website }}" target="_blank" rel="noopener" onclick="event.stopPropagation();">Site</a>
-            {% endif %}
-            </td>
-            <td>{{ e.rating }}</td>
-        </tr>
-        {% else %}
-        <tr><td colspan="12" class="text-center text-muted py-4">Aucune entrée.</td></tr>
-        {% endfor %}
-      </tbody>
+  {# ========= Filtres / Recherche ========= #}
+  <form method="get" action="{{ path('annuaire_index') }}" class="card mb-3">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">Catégorie</label>
+          <select name="cat" class="form-select">
+            <option value="" {% if f is not defined or f.cat is not defined or f.cat == '' %}selected{% endif %}>Toutes</option>
+            {% for cat in categories %}
+              <option value="{{ cat }}" {% if f is defined and f.cat is defined and f.cat == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
 
-    </table>
-  </div>
+        <div class="col-md-2">
+          <label class="form-label">Type</label>
+          <select name="type" class="form-select">
+            <option value="" {% if f is not defined or f.type is not defined or f.type == '' %}selected{% endif %}>Tous</option>
+            {% for t in types %}
+              <option value="{{ t }}" {% if f is defined and f.type is defined and f.type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Note minimale</label>
+          <select name="min" class="form-select">
+            {% set fmin = (f is defined and f.min is defined) ? (f.min ~ '') : '' %}
+            {% set mins = ['', 0, 1, 2, 3, 4, 5] %}
+            {% for m in mins %}
+              {% if m is same as('') %}
+                <option value="" {% if fmin == '' %}selected{% endif %}>Aucune</option>
+              {% else %}
+                {% set mm = m ~ '' %}
+                <option value="{{ m }}" {% if fmin != '' and fmin == mm %}selected{% endif %}>≥ {{ m }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Recherche globale</label>
+          <input type="text" class="form-control" name="q"
+                 value="{{ f.q|default('') }}"
+                 placeholder="Désignation, nom, ville, email, site…">
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Mots (description)</label>
+          <input type="text" class="form-control" name="desc"
+                 value="{{ f.desc|default('') }}"
+                 placeholder="Mots dans la description">
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Filtrer</button>
+        <a class="btn btn-outline-secondary" href="{{ path('annuaire_index') }}">Réinitialiser</a>
+      </div>
+    </div>
+  </form>
+
+  {# ========= Liste ========= #}
+  {% if entries is empty %}
+    <div class="text-muted">Aucune adresse pour le moment.</div>
+  {% else %}
+    <div class="dir-list">
+      {% for a in entries %}
+        {% set canEdit   = canEditById[a.id]|default(false) %}
+        {% set canDelete = canDeleteById[a.id]|default(false) %}
+
+        <div class="dir-card">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-start justify-content-between gap-2">
+              <div>
+                {# Titre : désignation sinon "Nom Prénom", sinon "Entrée #id" + lien site web à droite #}
+                {% set title = a.designation ?? '' %}
+                {% if title is empty %}
+                  {% set title = a.lastName
+                    ? a.lastName ~ (a.firstName ? ' ' ~ a.firstName : '')
+                    : 'Entrée #' ~ a.id %}
+                {% endif %}
+
+                <div class="title-row">
+                  <div class="h6 m-0">{{ title }}</div>
+                  {% if a.website %}
+                    <a class="site-link text-decoration-underline"
+                       href="{{ a.website }}" target="_blank" rel="noopener">
+                      site web
+                    </a>
+                  {% endif %}
+                </div>
+
+                <div class="dir-meta mt-1">
+                  {% if a.category %}
+                    <span class="dir-badge" title="Catégorie">{{ a.category }}</span>
+                  {% endif %}
+                  {% if a.type %}
+                    <span class="dir-badge" title="Type">{{ a.type }}</span>
+                  {% endif %}
+                  <span class="dir-stars" title="Note">
+                    {% set r = a.rating ?? 0 %}
+                    {% for i in 1..5 %}
+                      {% if i <= r %}
+                        <span class="dir-star dir-star--full">★</span>
+                      {% else %}
+                        <span class="dir-star">☆</span>
+                      {% endif %}
+                    {% endfor %}
+                  </span>
+                </div>
+
+                <div class="dir-muted small mt-2">
+                  {% set line1 = a.address ?? '' %}
+                  {% set line2 = (a.postalCode ?? '') ~ (a.city ? ' ' ~ a.city : '') %}
+                  {% if line1 %}{{ line1 }}{% endif %}
+                  {% if line2 %}{% if line1 %} — {% endif %}{{ line2 }}{% endif %}
+                </div>
+
+                {% if a.description %}
+                  <div class="small mt-2">{{ a.description }}</div>
+                {% endif %}
+              </div>
+
+              <div class="text-end">
+                <div class="dir-actions">
+                  {% if a.email %}
+                    <a class="btn btn-sm btn-outline-secondary" href="mailto:{{ a.email }}">Email</a>
+                  {% endif %}
+                  {% if a.phone %}
+                    <a class="btn btn-sm btn-outline-secondary" href="tel:{{ a.phone|replace({' ':'','-':'','.' : ''}) }}">Appeler</a>
+                  {% endif %}
+                  {# Le bouton "Site web" est retiré : le lien est désormais près du titre #}
+                </div>
+
+                <div class="mt-2 d-flex justify-content-end gap-2">
+                  {% if canEdit %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ path('annuaire_edit', { id: a.id }) }}">Modifier</a>
+                  {% endif %}
+                  {% if canDelete %}
+                    <form method="post"
+                          action="{{ path('annuaire_delete', { id: a.id }) }}"
+                          onsubmit="return confirm('Supprimer définitivement cette adresse ?');"
+                          class="d-inline">
+                      <input type="hidden" name="_token" value="{{ csrf_token('annuaire_delete_' ~ a.id) }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      {% endfor %}
+    </div>
+  {% endif %}
 </div>
-
-<script>
-
-(function(){
-  const rows = document.querySelectorAll('#dir-table tbody tr.clickable-row');
-  rows.forEach(tr => {
-    tr.addEventListener('click', (e) => {
-      const tag = e.target.tagName.toLowerCase();
-      if (['a','button','input','select','textarea','label'].includes(tag)) return; // ne pas intercepter ces clics
-      const url = tr.getAttribute('data-href');
-      if (url) window.location.href = url;
-    });
-  });
-})();
-
-// Filtres par listes déroulantes (haut)
-const selCat = document.getElementById('filter-category');
-const selType = document.getElementById('filter-type');
-const table = document.getElementById('dir-table');
-const rows  = Array.from(table.querySelectorAll('tbody tr'));
-
-function applyFilters() {
-  const cat = (selCat.value || '').toLowerCase();
-  const typ = (selType.value || '').toLowerCase();
-
-  rows.forEach(tr => {
-    const c = (tr.cells[0]?.innerText || '').toLowerCase();
-    const t = (tr.cells[1]?.innerText || '').toLowerCase();
-    let show = true;
-    if (cat && c !== cat) show = false;
-    if (typ && t !== typ) show = false;
-
-    // filtres colonne par colonne
-    document.querySelectorAll('.col-filter').forEach(inp => {
-      const col = parseInt(inp.dataset.col,10);
-      const val = (inp.value || '').toLowerCase();
-      if (val) {
-        const cellText = (tr.cells[col]?.innerText || '').toLowerCase();
-        if (!cellText.includes(val)) show = false;
-      }
-    });
-
-    tr.style.display = show ? '' : 'none';
-  });
-}
-selCat.addEventListener('change', applyFilters);
-selType.addEventListener('change', applyFilters);
-document.querySelectorAll('.col-filter').forEach(i => i.addEventListener('input', applyFilters));
-</script>
 {% endblock %}

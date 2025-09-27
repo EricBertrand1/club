@@ -22,11 +22,20 @@
     .block{
       background:#fff;border:1px dashed transparent;border-radius:.4rem;padding:.4rem;
       display:grid;grid-template-columns:minmax(0,1fr);column-gap:8px;align-items:start;
-      position:relative;
+      position:relative; /* nécessaire pour le badge en bas à droite */
     }
     .block.editing{border-color:#d1d5db}
     .block .body{min-width:0;width:100%;}
     .block.selected{ outline:2px solid #22c55e; }
+
+    /* Badge compteur de questions (édition uniquement) */
+    .qcount{
+      position:absolute; right:.45rem; bottom:.45rem;
+      background:#000; color:#fff;
+      font-size:.65rem; line-height:1;
+      padding:.15rem .4rem; border-radius:999px;
+      opacity:.85; pointer-events:none; z-index:3;
+    }
 
     /* Indentation */
     .block.chapter    { margin-left: 1vw; }
@@ -57,10 +66,43 @@
     .rm:hover{background:#fff0f1}
 
     .p-full .content{min-height:80px;padding:8px;background:#fafafa;border-radius:.35rem;border:1px solid #eee}
-    .img-full img,.split img{max-width:100%;height:auto;border-radius:.35rem;border:1px solid #eee;display:block}
-    .split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
-    .split > *{min-width:0}
-    .split .text{min-height:80px;padding:8px;background:#fafafa;border-radius:.35rem;border:1px solid #eee}
+    .img-full img,.split-grid img{max-width:100%;height:auto;border-radius:.35rem;border:1px solid #eee;display:block}
+
+    /* ====== Bloc SPLIT (2 colonnes + poignée centrale) ====== */
+    .split-grid{
+      --split-gap: 16px; /* largeur de la poignée centrale (zone cliquable) */
+      display:grid;
+      grid-template-columns:minmax(0,1fr) var(--split-gap) minmax(0,1fr);
+      gap:12px;
+      align-items:stretch;          /* <— la poignée occupe toute la hauteur */
+    }
+    .split-grid > *{min-width:0}
+
+    .split-grid .text{
+      min-height:80px;padding:8px;background:#fafafa;border-radius:.35rem;border:1px solid #eee
+    }
+
+    /* poignée de redimensionnement (colonne centrale) */
+    .split-grid .resize-col{
+      cursor: col-resize;
+      user-select: none;
+      touch-action: none;
+      position: relative;
+      width:100%;
+      height:100%;
+      z-index: 2;
+      background: transparent;
+    }
+    .split-grid .resize-col::after{
+      content:'';
+      position:absolute; top:0; bottom:0; left:50%;
+      transform:translateX(-50%);
+      width:2px; background:#e5e7eb;
+      border-radius:1px;
+      pointer-events:none;
+    }
+    .split-grid .resize-col:hover::after{ background:#cbd5e1; }
+    .split-grid.resizing .resize-col::after{ background:#9ca3af; }
 
     .chapter{font-weight:700;font-size:1.4rem;margin:.2rem 0}
     .subchapter{font-weight:600;font-size:1.15rem;margin:.15rem 0}
@@ -72,7 +114,7 @@
 
     /* Placeholder pour contenteditable */
     .content[contenteditable][data-ph]:empty::before,
-    .split .text[contenteditable][data-ph]:empty::before{
+    .split-grid .text[contenteditable][data-ph]:empty::before{
       content: attr(data-ph);
       color:#9ca3af; pointer-events:none;
     }
@@ -111,7 +153,6 @@
         {% if canEdit %}
           <button id="btn-save" class="btn btn-primary">Enregistrer</button>
         {% endif %}
-        {# Bouton PDF (lecture) #}
         {% if not canEdit %}
           <a class="btn btn-outline-primary" href="{{ path('formation_pdf', { id: subcategory.id }) }}" target="_blank">Télécharger PDF</a>
         {% endif %}
@@ -128,7 +169,7 @@
           <button class="btn btn-outline-secondary" data-insert="left-text-right-img">+ Texte gauche / Image droite</button>
           <button class="btn btn-outline-secondary" data-insert="left-img-right-text">+ Image gauche / Texte droite</button>
         </div>
-        <small class="text-muted">Cliquez une image pour la remplacer • 🗑 pour supprimer • ⋮⋮ pour déplacer • Clic droit sur un bloc pour gérer ses questions</small>
+        <small class="text-muted">Cliquez une image pour la remplacer • 🗑 pour supprimer • ⋮⋮ pour déplacer • Clic gauche sur la barre centrale pour redimensionner</small>
       </div>
     {% endif %}
 
@@ -140,12 +181,13 @@
            data-save-url="{{ path('formation_save',   { id: subcategory.id }) }}"
          {% endif %}
     >
-      {# Rendu des blocs avec id ancré b-<index> pour revenir dessus #}
+      {# Rendu des blocs avec id ancré b-<index> pour retour #}
       {% for b in blocks %}
         {% set t = b.type %}
         {% if t in ['chapter','subchapter','p-full','img-full','left-text-right-img','left-img-right-text'] %}
+          {% set isSplit = t in ['left-text-right-img','left-img-right-text'] %}
           <div id="b-{{ loop.index0 }}"
-               class="block {{ t }}{% if canEdit %} editing{% endif %}"
+               class="block {{ t }}{% if isSplit %} split{% endif %}{% if canEdit %} editing{% endif %}"
                data-type="{{ t }}"
                data-idx="{{ loop.index0 }}">
             {% if canEdit %}
@@ -173,21 +215,28 @@
                   {% if b.path %}<img src="{{ asset(b.path) }}" alt="">{% else %}<div class="placeholder">Cliquez pour choisir une image…</div>{% endif %}
                 </div>
               {% elseif t == 'left-text-right-img' %}
-                <div class="split">
+                <div class="split-grid" style="grid-template-columns: {{ b.cols|default('minmax(0,1fr) var(--split-gap) minmax(0,1fr)') }};">
                   <div class="text" {{ canEdit ? 'contenteditable=true' : '' }}>{{ b.text|raw }}</div>
+                  <div class="resize-col" aria-hidden="true"></div>
                   <div class="img">
                     {% if b.path %}<img src="{{ asset(b.path) }}" alt="">{% else %}<div class="placeholder">Cliquez pour choisir une image…</div>{% endif %}
                   </div>
                 </div>
               {% elseif t == 'left-img-right-text' %}
-                <div class="split">
+                <div class="split-grid" style="grid-template-columns: {{ b.cols|default('minmax(0,1fr) var(--split-gap) minmax(0,1fr)') }};">
                   <div class="img">
                     {% if b.path %}<img src="{{ asset(b.path) }}" alt="">{% else %}<div class="placeholder">Cliquez pour choisir une image…</div>{% endif %}
                   </div>
+                  <div class="resize-col" aria-hidden="true"></div>
                   <div class="text" {{ canEdit ? 'contenteditable=true' : '' }}>{{ b.text|raw }}</div>
                 </div>
               {% endif %}
             </div>
+
+            {# badge compteur (injecté/maj en JS quand canEdit) #}
+            {% if canEdit %}
+              <div class="qcount" aria-hidden="true">…</div>
+            {% endif %}
           </div>
         {% endif %}
       {% endfor %}
@@ -207,6 +256,9 @@
   document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('canvas');
     if (!canvas) return;
+
+    const IS_EDIT = canvas.dataset.edit === '1';
+    const SUB_ID = {{ subcategory.id }};
 
     const uploadUrl = canvas.dataset.uploadUrl;
     const saveUrl   = canvas.dataset.saveUrl;
@@ -239,31 +291,47 @@
       subchapter: () => tpl('subchapter', `<span class="content" contenteditable="true" data-ph="Sous-titre"></span>`),
       'p-full': () => tpl('p-full', `<div class="content" contenteditable="true" data-ph="Paragraphe…"></div>`),
       'img-full': () => tpl('img-full', `<div class="placeholder">Cliquez pour choisir une image…</div>`),
-      'left-text-right-img': () => tpl('left-text-right-img', `<div class="split"><div class="text content" contenteditable="true" data-ph="Texte…"></div><div class="img"><div class="placeholder">Cliquez pour choisir une image…</div></div></div>`),
-      'left-img-right-text': () => tpl('left-img-right-text', `<div class="split"><div class="img"><div class="placeholder">Cliquez pour choisir une image…</div></div><div class="text content" contenteditable="true" data-ph="Texte…"></div></div>`),
+      'left-text-right-img': () => tpl('left-text-right-img',
+        `<div class="split-grid" style="grid-template-columns:minmax(0,1fr) var(--split-gap) minmax(0,1fr);">
+           <div class="text content" contenteditable="true" data-ph="Texte…"></div>
+           <div class="resize-col" aria-hidden="true"></div>
+           <div class="img"><div class="placeholder">Cliquez pour choisir une image…</div></div>
+         </div>`),
+      'left-img-right-text': () => tpl('left-img-right-text',
+        `<div class="split-grid" style="grid-template-columns:minmax(0,1fr) var(--split-gap) minmax(0,1fr);">
+           <div class="img"><div class="placeholder">Cliquez pour choisir une image…</div></div>
+           <div class="resize-col" aria-hidden="true"></div>
+           <div class="text content" contenteditable="true" data-ph="Texte…"></div>
+         </div>`),
     };
     function tpl(type, inner){
       const d = document.createElement('div');
-      d.className = `block ${type} editing`;
+      const isSplit = (type === 'left-text-right-img' || type === 'left-img-right-text');
+      d.className = `block ${type} ${isSplit ? 'split ' : ''}editing`;
       d.dataset.type = type;
       d.innerHTML =
         `<div class="gutter">
            <div class="handle" draggable="true" title="Déplacer">⋮⋮</div>
            <button type="button" class="rm" title="Supprimer">🗑</button>
          </div>
-         <div class="body">${inner}</div>`;
+         <div class="body">${inner}</div>` + (IS_EDIT ? `<div class="qcount" aria-hidden="true">…</div>` : ``);
       bindOne(d);
       ensureEditors(d);
+      if (IS_EDIT) { initBlockCount(d); }
       return d;
     }
     document.querySelectorAll('[data-insert]').forEach(btn=>{
-      btn.addEventListener('click', ()=> { const t = btn.dataset.insert; const node = mk[t]?.(); if (node) canvas.appendChild(node); });
+      btn.addEventListener('click', ()=> {
+        const t = btn.dataset.insert;
+        const node = mk[t]?.();
+        if (node) canvas.appendChild(node);
+      });
     });
 
     // ===== Suppression =====
     function bindDelete(scope){
       scope.querySelectorAll('.rm').forEach(btn=>{
-        btn.addEventListener('click', (e)=> { e.stopPropagation(); btn.closest('.block')?.remove(); });
+        btn.addEventListener('click', (e)=> { e.stopPropagation(); btn.closest('.block')?.remove(); if (IS_EDIT) refreshAllCounts(); });
       });
     }
 
@@ -278,8 +346,16 @@
         if (after == null) canvas.appendChild(dragging);
         else canvas.insertBefore(dragging, after);
       });
-      canvas.addEventListener('drop', ()=> { if (dragging) dragging.classList.remove('dragging'); dragging = null; });
-      canvas.addEventListener('dragend', ()=> { if (dragging) dragging.classList.remove('dragging'); dragging = null; });
+      canvas.addEventListener('drop', ()=> {
+        if (dragging) dragging.classList.remove('dragging');
+        dragging = null;
+        if (IS_EDIT) refreshAllCounts();
+      });
+      canvas.addEventListener('dragend', ()=> {
+        if (dragging) dragging.classList.remove('dragging');
+        dragging = null;
+        if (IS_EDIT) refreshAllCounts();
+      });
     }
     function bindDnd(scope){
       scope.querySelectorAll('.handle').forEach(h=>{
@@ -294,32 +370,139 @@
       return closest;
     }
 
-    // ===== Upload image =====
-    function bindImagePickers(scope){
-      scope.addEventListener('click', (e)=>{
+    // ===== Upload image (UN SEUL handler global + garde anti-doublon) =====
+    let imagePickerBound = false;
+    let isPickingFile = false;
+
+    function bindImagePickersOnce(){
+      if (imagePickerBound) return;
+      imagePickerBound = true;
+      canvas.addEventListener('click', (e)=>{
         const ph  = e.target.closest('.placeholder');
-        const img = e.target.tagName === 'IMG' ? e.target : null;
+        const img = (e.target.tagName === 'IMG') ? e.target : null;
         if (!ph && !img) return;
+        if (isPickingFile) return; // anti double prompt
+        isPickingFile = true;
         pickAndUpload((publicPath, url)=>{
           if (ph){
-            const parent = ph.parentElement; const image = document.createElement('img'); image.src = url;
-            parent.innerHTML = ''; parent.appendChild(image);
-          } else if (img){ img.src = url; }
-        });
+            const parent = ph.parentElement;
+            const image = document.createElement('img');
+            image.src = url;
+            parent.innerHTML = '';
+            parent.appendChild(image);
+          } else if (img){
+            img.src = url;
+          }
+          setTimeout(()=>{ isPickingFile = false; }, 50);
+        }, () => { isPickingFile = false; });
       });
     }
-    function pickAndUpload(cb){
+
+    function pickAndUpload(cb, onFinally){
       const input = document.createElement('input'); input.type='file'; input.accept='image/*';
       input.onchange = async () => {
-        if (!input.files || !input.files[0]) return;
-        const fd = new FormData(); fd.append('file', input.files[0]);
         try{
+          if (!input.files || !input.files[0]) return;
+          const fd = new FormData(); fd.append('file', input.files[0]);
           const res = await fetch(uploadUrl, { method:'POST', body: fd });
           const data = await res.json();
           if (data.ok && data.path){ cb(data.path, data.url || ('/'+data.path)); } else { alert('Upload échoué'); }
         }catch{ alert('Erreur upload'); }
+        finally{ if (onFinally) onFinally(); }
       };
       input.click();
+    }
+
+    // ===== Redimensionnement des blocs SPLIT =====
+    function bindSplitResizers(scope){
+      scope.querySelectorAll('.block.split .split-grid .resize-col').forEach(handle=>{
+        const split = handle.closest('.split-grid');
+        if (!split) return;
+
+        const start = (pointer) => {
+          pointer.preventDefault();
+          startResize(pointer, split);
+        };
+
+        handle.addEventListener('mousedown', start);
+        handle.addEventListener('touchstart', (e)=> start(e.touches[0]), { passive:false });
+      });
+    }
+
+    function startResize(pointerEvent, split){
+      const children = [...split.children];
+      const leftEl  = children[0];
+      const rightEl = children[2];
+
+      const leftRect  = leftEl.getBoundingClientRect();
+      const rightRect = rightEl.getBoundingClientRect();
+
+      const total = (leftRect.width + rightRect.width);
+      const startX = pointerEvent.clientX ?? pointerEvent.pageX;
+
+      split.classList.add('resizing');
+
+      function onMove(ev){
+        const clientX = ev.clientX ?? (ev.touches && ev.touches[0]?.clientX) ?? startX;
+        let newLeft = leftRect.width + (clientX - startX);
+        const min = 120; // largeur mini des colonnes
+        newLeft = Math.max(min, Math.min(total - min, newLeft));
+        const newRight = total - newLeft;
+        split.style.gridTemplateColumns = `${Math.round(newLeft)}px var(--split-gap) ${Math.round(newRight)}px`;
+      }
+
+      function onUp(){
+        split.classList.remove('resizing');
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onUp);
+      }
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      window.addEventListener('touchmove', onMove, { passive:false });
+      window.addEventListener('touchend', onUp);
+    }
+
+    // ====== Compteur de questions (édition) ======
+    function blockIndex(el){
+      const d = el.getAttribute('data-idx');
+      if (d !== null) return parseInt(d, 10);
+      const list = Array.from(canvas.querySelectorAll('.block'));
+      return Math.max(0, list.indexOf(el));
+    }
+
+    async function fetchQuestionsCount(idx){
+      try{
+        const resp = await fetch(`{{ path('castellum_api_questions') }}?subId=${SUB_ID}&chapter=${idx}`);
+        if (!resp.ok) return 0;
+        const data = await resp.json();
+        if (!data.ok) return 0;
+        return Array.isArray(data.items) ? data.items.length : 0;
+      }catch{ return 0; }
+    }
+
+    function setBadge(block, value){
+      let b = block.querySelector('.qcount');
+      if (!b){
+        b = document.createElement('div');
+        b.className = 'qcount';
+        block.appendChild(b);
+      }
+      b.textContent = String(value);
+    }
+
+    async function initBlockCount(block){
+      setBadge(block, '…');
+      const idx = blockIndex(block);
+      const n = await fetchQuestionsCount(idx);
+      setBadge(block, n);
+    }
+
+    function refreshAllCounts(){
+      const blocks = canvas.querySelectorAll('.block');
+      blocks.forEach(b => initBlockCount(b));
     }
 
     // ===== Sauvegarde =====
@@ -327,27 +510,46 @@
       const out = [];
       canvas.querySelectorAll('.block').forEach(b=>{
         const type = b.dataset.type; if (!type) return;
+
         if (type === 'chapter' || type === 'subchapter'){
           const text = (b.querySelector('.content')?.innerText ?? '').trim();
           out.push({ type, text });
-        } else if (type === 'p-full'){
+          return;
+        }
+
+        if (type === 'p-full'){
           const html = (b.querySelector('.content')?.innerHTML ?? '').trim();
           out.push({ type, text: html });
-        } else if (type === 'img-full'){
+          return;
+        }
+
+        if (type === 'img-full'){
           const p = b.querySelector('img')?.getAttribute('src') || '';
           out.push({ type, path: p.replace(/^\/+/,'') });
-        } else if (type === 'left-text-right-img'){
-          const html = (b.querySelector('.text')?.innerHTML ?? '').trim();
-          const p = b.querySelector('.img img')?.getAttribute('src') || '';
-          out.push({ type, text: html, path: p.replace(/^\/+/,'') });
-        } else if (type === 'left-img-right-text'){
-          const html = (b.querySelector('.text')?.innerHTML ?? '').trim();
-          const p = b.querySelector('.img img')?.getAttribute('src') || '';
-          out.push({ type, text: html, path: p.replace(/^\/+/,'') });
+          return;
+        }
+
+        if (type === 'left-text-right-img' || type === 'left-img-right-text'){
+          const split = b.querySelector('.split-grid');
+          const html  = (b.querySelector('.text')?.innerHTML ?? '').trim();
+          const p     = b.querySelector('.img img')?.getAttribute('src') || '';
+          let cols = '';
+          if (split){
+            cols = split.style.gridTemplateColumns?.trim() || '';
+            if (!cols){
+              const children = [...split.children];
+              const leftW  = children[0].getBoundingClientRect().width;
+              const rightW = children[2].getBoundingClientRect().width;
+              cols = `${Math.round(leftW)}px var(--split-gap) ${Math.round(rightW)}px`;
+            }
+          }
+          out.push({ type, text: html, path: p.replace(/^\/+/,'') , cols });
+          return;
         }
       });
       return out;
     }
+
     document.getElementById('btn-save')?.addEventListener('click', async ()=>{
       const blocks = collect();
       try{
@@ -357,11 +559,20 @@
       }catch{ alert('Erreur réseau'); }
     });
 
-    function bindOne(scope){ bindDelete(scope); bindImagePickers(scope); bindDnd(scope); }
+    function bindOne(scope){
+      bindDelete(scope);
+      bindDnd(scope);
+      bindSplitResizers(scope);
+      // picker d’image attaché une seule fois (voir plus bas)
+    }
 
     // Bind initial + placeholders
     bindOne(canvas);
     ensureEditors(canvas);
+    bindImagePickersOnce();
+
+    // Compteurs au chargement + après actions qui changent l’index
+    if (IS_EDIT) refreshAllCounts();
 
     // ======== Menu contextuel Questions (clic droit) ========
     const qmenu = document.getElementById('qmenu');
@@ -372,32 +583,20 @@
     window.addEventListener('resize', closeMenu);
     document.addEventListener('scroll', closeMenu, true);
 
-    function blockIndex(el){
-      // utilise l’id data-idx si présent, sinon calcule l’index courant
-      const d = el.getAttribute('data-idx');
-      if (d !== null) return parseInt(d, 10);
-      const list = Array.from(canvas.querySelectorAll('.block'));
-      return Math.max(0, list.indexOf(el));
-    }
-
     async function openQuestionsMenu(block, x, y){
       const idx = blockIndex(block);
-      const subId = {{ subcategory.id }};
-      // sélection visuelle
       document.querySelectorAll('.block.selected').forEach(b=>b.classList.remove('selected'));
       block.classList.add('selected');
 
-      // récupère la liste via API
       let items = [];
       try{
-        const resp = await fetch(`{{ path('castellum_api_questions') }}?subId=${subId}&chapter=${idx}`);
+        const resp = await fetch(`{{ path('castellum_api_questions') }}?subId=${SUB_ID}&chapter=${idx}`);
         if (resp.ok){
           const data = await resp.json();
           if (data.ok) items = data.items || [];
         }
       }catch(e){ console.error(e); }
 
-      // construit le menu
       const returnUrl = encodeURIComponent(`${location.origin}${location.pathname}?edit={{ canEdit ? '1':'0' }}#b-${idx}`);
       const addUrl = `{{ path('castellum_question_new', { id: subcategory.id }) }}?chapter=${idx}&return=${returnUrl}`;
 
@@ -428,7 +627,6 @@
         qmenu.appendChild(empty);
       }
 
-      // positionne dans l’écran (évite débordements)
       qmenu.style.display = 'block';
       const r = qmenu.getBoundingClientRect();
       const vw = window.innerWidth, vh = window.innerHeight;
@@ -438,21 +636,18 @@
       qmenu.style.top  = top + 'px';
     }
 
-    // clic = sélection simple (visual)
     canvas.addEventListener('click', (e)=>{
       const b = e.target.closest('.block'); if (!b) return;
       document.querySelectorAll('.block.selected').forEach(x=>x.classList.remove('selected'));
       b.classList.add('selected');
     });
 
-    // clic droit = menu
     canvas.addEventListener('contextmenu', (e)=>{
       const b = e.target.closest('.block'); if (!b) return;
       e.preventDefault();
       openQuestionsMenu(b, e.clientX, e.clientY);
     });
 
-    // Au retour depuis "castellum" (hash #b-<idx>) : re-sélection + scroll
     if (location.hash && /^#b-\d+$/.test(location.hash)){
       const el = document.querySelector(location.hash);
       if (el){ el.classList.add('selected'); el.scrollIntoView({behavior:'smooth', block:'center'}); }
