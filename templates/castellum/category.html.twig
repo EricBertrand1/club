@@ -3,13 +3,16 @@
 
 {% block body %}
 <div class="container-fluid py-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h5 m-0">Castellum — {{ code }} — {{ label }}</h1>
-    <div class="d-flex gap-2">
-      <a class="btn btn-outline-secondary" href="{{ path('castellum_index') }}">Retour</a>
-      <a class="btn btn-primary" href="{{ path('castellum_index') }}">Lancer le test</a>
+  <div class="position-sticky top-0 bg-white pt-2" style="z-index: 100;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h5 m-0">Castellum — {{ code }} — {{ label }}</h1>
+      <div class="d-flex gap-2">
+        <a class="btn btn-primary" href="{{ path('castellum_index') }}">Lancer le test</a>
+        <a class="btn btn-outline-secondary" href="{{ path('castellum_index') }}">Retour</a>
+      </div>
     </div>
   </div>
+
 
   <div class="d-flex justify-content-between align-items-center mb-2">
     <div class="d-flex gap-2">
@@ -29,18 +32,25 @@
         </thead>
         <tbody>
         {% for s in subs %}
+          {% set n = countsBySubId[s.id]|default(0) %}
           <tr>
             <td>
               <div class="form-check m-0">
                 <input class="form-check-input sub-checkbox" type="checkbox"
-                       id="sub-{{ s.id }}"
-                       value="{{ s.id }}"
-                       {% if s.id in prefsSubIds %}checked{% endif %}>
-                <label class="form-check-label" for="sub-{{ s.id }}">{{ s.name }}</label>
+                      id="sub-{{ s.id }}"
+                      value="{{ s.id }}"
+                      {% if s.id in prefsSubIds %}checked{% endif %}>
+                <label class="form-check-label" for="sub-{{ s.id }}">
+                  {{ s.name }}
+                  <small class="text-muted ms-2">
+                    — {{ n }} question{% if n > 1 %}s{% endif %}
+                  </small>
+                </label>
               </div>
             </td>
             <td class="text-end">
-              <a class="btn btn-sm btn-outline-primary" href="{{ path('castellum_questions', {id: s.id}) }}">Éditer Q/R</a>
+              <a class="btn btn-sm btn-outline-primary"
+                href="{{ path('castellum_questions', {id: s.id}) }}">Éditer Q/R</a>
               <form method="post"
                     action="{{ path('castellum_sub_delete', {id: s.id}) }}"
                     class="d-inline"
@@ -51,8 +61,11 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="2" class="text-muted fst-italic">Aucune sous-catégorie.</td></tr>
+          <tr>
+            <td colspan="2" class="text-muted fst-italic">Aucune sous-catégorie.</td>
+          </tr>
         {% endfor %}
+
         </tbody>
       </table>
     </div>

@@ -8,9 +8,15 @@
       <h1 class="h4 m-0">Questions — {{ subcategory.code }} — {{ subcategory.name }}</h1>
       <div class="text-muted small">Catégorie : {{ labels[subcategory.code] ?? subcategory.code }}</div>
     </div>
+
+    {# Groupe de boutons à droite : on met "Ajouter" AVANT, puis "Retour" pour que "Retour" soit le plus à droite #}
     <div class="d-flex gap-2">
-      <a class="btn btn-outline-secondary" href="{{ path('castellum_index') }}">Retour</a>
-      <a class="btn btn-primary" href="{{ path('castellum_question_new', { id: subcategory.id }) }}">Ajouter une question</a>
+      <a class="btn btn-primary" href="{{ path('castellum_question_new', { id: subcategory.id }) }}">
+        Ajouter une question
+      </a>
+      <a class="btn btn-outline-secondary" href="{{ path('castellum_index') }}">
+        Retour
+      </a>
     </div>
   </div>
 

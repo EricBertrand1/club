@@ -18,32 +18,57 @@ class DirectoryController extends AbstractController
         $repo = $em->getRepository(DirectoryEntry::class);
 
         // Filtres GET
-        $cat  = $request->query->get('cat');     // Catégorie exacte
-        $typ  = $request->query->get('type');    // Web/Localisé
-        $q    = $request->query->get('q');       // recherche globale
-        $min  = $request->query->get('min', ''); // note min
-        $desc = $request->query->get('desc');    // mots description
+        $cat = $request->query->get('cat');      // Catégorie exacte
+        $typ = $request->query->get('type');     // Web/Localisé
+        $q   = $request->query->get('q');        // recherche multi-mots (OR)
+        $min = $request->query->get('min', '');  // note min
 
         $qb = $repo->createQueryBuilder('e');
 
-        if ($cat) { $qb->andWhere('e.category = :cat')->setParameter('cat', $cat); }
-        if ($typ) { $qb->andWhere('e.type = :typ')->setParameter('typ', $typ); }
+        if ($cat) {
+            $qb->andWhere('e.category = :cat')->setParameter('cat', $cat);
+        }
+        if ($typ) {
+            $qb->andWhere('e.type = :typ')->setParameter('typ', $typ);
+        }
+
+        // ----- Recherche multi-mots (OR global) -----
+        // Si l’utilisateur tape "mairie paris", on matche une fiche si
+        // "mairie" OU "paris" apparaissent dans AU MOINS UN des champs ci-dessous.
         if ($q) {
-            $qb->andWhere('(LOWER(e.designation) LIKE :q OR LOWER(e.lastName) LIKE :q OR LOWER(e.firstName) LIKE :q OR LOWER(e.city) LIKE :q OR LOWER(e.email) LIKE :q OR LOWER(e.website) LIKE :q)')
-               ->setParameter('q', '%'.mb_strtolower($q).'%');
-        }
-        if ($min !== '' && is_numeric($min)) {
-            $qb->andWhere('e.rating >= :min')->setParameter('min', (int)$min);
-        }
-        if ($desc) {
-            $words = preg_split('/\s+/', trim($desc)) ?: [];
+            $words = preg_split('/\s+/', trim((string) $q)) ?: [];
+            $groupOr = [];
             $i = 0;
+
             foreach ($words as $w) {
                 $w = mb_strtolower($w);
-                if ($w === '') continue;
-                $param = 'd'.$i++;
-                $qb->andWhere("LOWER(e.description) LIKE :$param")->setParameter($param, '%'.$w.'%');
+                if ($w === '') { continue; }
+
+                $param = 'w' . $i++;
+                // Pour CHAQUE mot, on prépare un sous-or sur l’ensemble des colonnes
+                $groupOr[] = sprintf(
+                    '(LOWER(e.designation) LIKE :%1$s
+                       OR LOWER(e.lastName)   LIKE :%1$s
+                       OR LOWER(e.firstName)  LIKE :%1$s
+                       OR LOWER(e.address)    LIKE :%1$s
+                       OR LOWER(e.postalCode) LIKE :%1$s
+                       OR LOWER(e.city)       LIKE :%1$s
+                       OR LOWER(e.email)      LIKE :%1$s
+                       OR LOWER(e.website)    LIKE :%1$s
+                       OR LOWER(e.description) LIKE :%1$s)',
+                    $param
+                );
+                $qb->setParameter($param, '%'.$w.'%');
             }
+
+            if (!empty($groupOr)) {
+                // On exige : (blocMot1) OR (blocMot2) OR (blocMot3) …
+                $qb->andWhere(implode(' OR ', $groupOr));
+            }
+        }
+
+        if ($min !== '' && is_numeric($min)) {
+            $qb->andWhere('e.rating >= :min')->setParameter('min', (int)$min);
         }
 
         $qb->orderBy('e.designation', 'ASC')->addOrderBy('e.lastName', 'ASC');
@@ -69,7 +94,8 @@ class DirectoryController extends AbstractController
             'entries'        => $entries,
             'categories'     => $categories,
             'types'          => ['Web','Localisé'],
-            'f'              => ['cat' => $cat, 'type' => $typ, 'q' => $q, 'min' => $min, 'desc' => $desc],
+            // plus de 'desc' ici
+            'f'              => ['cat' => $cat, 'type' => $typ, 'q' => $q, 'min' => $min],
             'canEditById'    => $canEditById,
             'canDeleteById'  => $canDeleteById,
         ]);
@@ -82,7 +108,6 @@ class DirectoryController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            // Aucune valeur forcée ici : la note existante est conservée telle quelle.
             $em->flush();
             $this->addFlash('success', 'Adresse mise à jour.');
             return $this->redirectToRoute('annuaire_index');
@@ -105,7 +130,7 @@ class DirectoryController extends AbstractController
 
         $entry = new DirectoryEntry();
 
-        // Définir un 0 par défaut UNIQUEMENT pour les nouvelles entrées
+        // valeur par défaut uniquement à la création
         if ($entry->getRating() === null) {
             $entry->setRating(0);
         }

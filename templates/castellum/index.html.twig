@@ -20,17 +20,26 @@
   .cat-700{ background:#8b5cf6; color:#ffffff; }            /* violet */
   .cat-800{ background:#6b7280; color:#ffffff; }            /* gris */
   .cat-900{ background:#ffffff; color:#111827; border:1px solid #e5e7eb; } /* blanc + bordure */
+
+  .cat-count{
+    display:inline-block; padding:.1rem .4rem; border-radius:999px;
+    background:#f3f4f6; color:#111827; border:1px solid #e5e7eb; font-size:.75rem; font-weight:700;
+  }
 </style>
 
 <div class="container-fluid py-5">
 
+  {# --- Barre tout en haut, bouton Quitter à droite --- #}
+  <div class="d-flex justify-content-end">
+    <a class="btn btn-outline-secondary" href="{{ path('app_home') }}">Quitter</a>
+  </div>
+
+  {# --- Ligne de titre + action principale --- #}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="page-title m-0">Castellum</h1>
-    <div class="d-flex gap-2">
-      <a class="btn btn-outline-secondary" href="{{ path('app_home') }}">Quitter</a>
-      <button type="submit" form="castellum-form" class="btn btn-primary">Lancer le test</button>
-    </div>
+    <button type="submit" form="castellum-form" class="btn btn-primary">Lancer le test</button>
   </div>
+
 
   {# Flashs #}
   {% for msg in app.flashes('success') %}<div class="alert alert-success">{{ msg }}</div>{% endfor %}
@@ -60,21 +69,12 @@
       </div>
     </div>
 
-    <div class="mb-2">
-      <h2 class="h5">Choisissez les catégories</h2>
-      <div class="text-muted small">
-        Cochez une catégorie pour l’inclure au test. Cliquez sur la pastille colorée pour
-        <strong>gérer les sous-catégories</strong> dans une page dédiée (comme Formation).
-      </div>
-    </div>
-
     <div class="card">
       <div class="card-body p-0">
         <table class="table table-hover m-0 align-middle">
           <thead class="table-light">
             <tr>
-              <th>Catégorie</th>
-              <th class="text-end">Sous-catégories</th>
+              <th>Catégories</th>
             </tr>
           </thead>
           <tbody>
@@ -83,20 +83,18 @@
               <td>
                 <div class="d-flex align-items-center gap-3">
                   <input class="form-check-input cat-checkbox" type="checkbox"
-                         id="cat-{{ code }}-chk" name="cats[]" value="{{ code }}"
-                         {% if code in prefsCats %}checked{% endif %}>
+                        id="cat-{{ code }}-chk" name="cats[]" value="{{ code }}"
+                        {% if code in prefsCats %}checked{% endif %}>
+
                   <a class="cat-chip cat-{{ code }}"
-                     href="{{ path('castellum_category', { code: code }) }}"
-                     title="Gérer les sous-catégories de {{ code }}">
+                    href="{{ path('castellum_category', { code: code }) }}"
+                    title="Gérer les sous-catégories de {{ code }}">
                     {{ code }} — {{ label }}
                   </a>
+
+                  {# ✅ total des questions pour ce code #}
+                  <span class="cat-count">{{ countsByCode[code]|default(0) }}</span>
                 </div>
-              </td>
-              <td class="text-end">
-                <a class="btn btn-sm btn-outline-secondary"
-                   href="{{ path('castellum_category', { code: code }) }}">
-                  Gérer les sous-catégories
-                </a>
               </td>
             </tr>
           {% else %}

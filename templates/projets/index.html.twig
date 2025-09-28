@@ -80,14 +80,17 @@
 
 {% block body %}
 <div class="container-fluid py-4 projets-scope">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 m-0">Projets</h1>
-    <div class="d-flex gap-2">
-      {% set backUrl = path('app_home') %}
-      <a class="btn btn-outline-secondary" href="{{ backUrl }}">Quitter</a>
-      <a class="btn btn-primary" href="{{ path('projets_new') }}">Nouveau projet</a>
+  <div class="position-sticky top-0 bg-white pt-2" style="z-index: 100;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h4 m-0">Projets</h1>
+      <div class="d-flex gap-2">
+        {% set backUrl = path('app_home') %}
+        <a class="btn btn-primary" href="{{ path('projets_new') }}">Nouveau projet</a>
+        <a class="btn btn-outline-secondary" href="{{ backUrl }}">Quitter</a>
+      </div>
     </div>
   </div>
+
 
   {# ---------- MES PROJETS ---------- #}
   <div class="card mb-3"><div class="card-header">Mes projets</div><div class="card-body">

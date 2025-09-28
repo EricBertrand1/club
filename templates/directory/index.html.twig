@@ -4,25 +4,37 @@
 {% block stylesheets %}
   {{ parent() }}
   <style>
+    /* ===== Cartes compactes (2 lignes) ===== */
+    .dir-list { display: grid; gap: .5rem; }
     .dir-card{
-      border:1px solid #e5e7eb; border-radius:.75rem; padding:1rem .95rem; background:#fff;
-      display:flex; gap:1rem; align-items:flex-start;
+      border:1px solid #e5e7eb; border-radius:.6rem; background:#fff;
+      padding:.55rem .75rem;
+      display:flex; align-items:center; gap:.75rem;
     }
-    .dir-badge{
-      display:inline-block; padding:.15rem .5rem; border-radius:.35rem; font-size:.75rem; font-weight:600;
-      background:#f3f4f6; color:#111827; border:1px solid #e5e7eb;
-    }
-    .dir-meta{ display:flex; gap:.5rem; flex-wrap:wrap; }
-    .dir-actions{ display:flex; gap:.4rem; flex-wrap:wrap; }
-    .dir-stars{ font-size:1rem; letter-spacing:.05em; user-select:none; }
-    .dir-star{ color:#9ca3af; }            /* creuse */
-    .dir-star--full{ color:#FFD700; }      /* doré */
-    .dir-muted{ color:#6b7280; }
-    .dir-list{ display:grid; grid-template-columns:1fr; gap:.75rem; }
-    @media (min-width: 720px){ .dir-list{ grid-template-columns:1fr; gap:1rem; } }
+    .dir-main { flex:1 1 auto; min-width:0; }
 
-    .title-row{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
-    .site-link{ font-size:.9rem; }
+    .dir-line1, .dir-line2 {
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display:block; line-height:1.2;
+    }
+    .dir-line1 { font-weight:600; }
+
+    .dir-title { margin-right:.5rem; }
+    .dir-website { font-size:.9rem; text-decoration:underline; margin-right:.5rem; }
+
+    .dir-stars { margin-left:.25rem; letter-spacing:.05em; user-select:none; }
+    .dir-star { color:#9ca3af; }            /* creuse */
+    .dir-star--full { color:#D4AF37; }      /* doré */
+
+    .dir-pill {
+      display:inline-block; font-size:.75rem; padding:.05rem .35rem;
+      border:1px solid #e5e7eb; border-radius:999px; margin-right:.35rem; color:#374151;
+      vertical-align:baseline;
+    }
+    .dir-dash { color:#9ca3af; margin:0 .25rem; }
+
+    .dir-actions { display:flex; align-items:center; gap:.35rem; }
+    .btn-skinny.btn-sm { padding:.1rem .45rem; line-height:1.1; }
   </style>
 {% endblock %}
 
@@ -84,18 +96,14 @@
           </select>
         </div>
 
-        <div class="col-md-3">
-          <label class="form-label">Recherche globale</label>
-          <input type="text" class="form-control" name="q"
-                 value="{{ f.q|default('') }}"
-                 placeholder="Désignation, nom, ville, email, site…">
-        </div>
-
-        <div class="col-md-2">
-          <label class="form-label">Mots (description)</label>
-          <input type="text" class="form-control" name="desc"
-                 value="{{ f.desc|default('') }}"
-                 placeholder="Mots dans la description">
+        <div class="col-md-5">
+          <label class="form-label">Recherche</label>
+          <input
+            type="text"
+            class="form-control"
+            name="q"
+            value="{{ f.q|default('') }}"
+            placeholder="Tapez un ou plusieurs mots (au moins un doit correspondre)…">
         </div>
       </div>
 
@@ -106,7 +114,7 @@
     </div>
   </form>
 
-  {# ========= Liste ========= #}
+  {# ========= Liste (compacte 2 lignes) ========= #}
   {% if entries is empty %}
     <div class="text-muted">Aucune adresse pour le moment.</div>
   {% else %}
@@ -115,86 +123,66 @@
         {% set canEdit   = canEditById[a.id]|default(false) %}
         {% set canDelete = canDeleteById[a.id]|default(false) %}
 
+        {% set title = a.designation ?? '' %}
+        {% if title is empty %}
+          {% set title = a.lastName
+            ? a.lastName ~ (a.firstName ? ' ' ~ a.firstName : '')
+            : 'Entrée #' ~ a.id %}
+        {% endif %}
+
+        {% set addr1 = a.address ?? '' %}
+        {% set addr2 = ((a.postalCode ?? '') ~ (a.city ? ' ' ~ a.city : ''))|trim %}
+        {% set addr  = (addr1 ? addr1 : '') ~ (addr1 and addr2 ? ' — ' : '') ~ (addr2 ? addr2 : '') %}
+
         <div class="dir-card">
-          <div class="flex-grow-1">
-            <div class="d-flex align-items-start justify-content-between gap-2">
-              <div>
-                {# Titre : désignation sinon "Nom Prénom", sinon "Entrée #id" + lien site web à droite #}
-                {% set title = a.designation ?? '' %}
-                {% if title is empty %}
-                  {% set title = a.lastName
-                    ? a.lastName ~ (a.firstName ? ' ' ~ a.firstName : '')
-                    : 'Entrée #' ~ a.id %}
-                {% endif %}
+          <div class="dir-main">
+            {# Ligne 1 : Titre + site + étoiles #}
+            <span class="dir-line1">
+              <span class="dir-title">{{ title }}</span>
+              {% if a.website %}
+                <a class="dir-website" href="{{ a.website }}" target="_blank" rel="noopener">site&nbsp;web</a>
+              {% endif %}
+              <span class="dir-stars" title="Note">
+                {% set r = a.rating ?? 0 %}
+                {% for i in 1..5 %}
+                  {% if i <= r %}
+                    <span class="dir-star dir-star--full">★</span>
+                  {% else %}
+                    <span class="dir-star">☆</span>
+                  {% endif %}
+                {% endfor %}
+              </span>
+            </span>
 
-                <div class="title-row">
-                  <div class="h6 m-0">{{ title }}</div>
-                  {% if a.website %}
-                    <a class="site-link text-decoration-underline"
-                       href="{{ a.website }}" target="_blank" rel="noopener">
-                      site web
-                    </a>
-                  {% endif %}
-                </div>
+            {# Ligne 2 : Catégorie • Type — Adresse — Description (début) #}
+            <span class="dir-line2">
+              {% if a.category %}<span class="dir-pill">{{ a.category }}</span>{% endif %}
+              {% if a.type %}<span class="dir-pill">{{ a.type }}</span>{% endif %}
+              {% if addr %}<span class="dir-dash">—</span><span>{{ addr }}</span>{% endif %}
+              {% if a.description %}<span class="dir-dash">—</span><span>{{ a.description }}</span>{% endif %}
+            </span>
+          </div>
 
-                <div class="dir-meta mt-1">
-                  {% if a.category %}
-                    <span class="dir-badge" title="Catégorie">{{ a.category }}</span>
-                  {% endif %}
-                  {% if a.type %}
-                    <span class="dir-badge" title="Type">{{ a.type }}</span>
-                  {% endif %}
-                  <span class="dir-stars" title="Note">
-                    {% set r = a.rating ?? 0 %}
-                    {% for i in 1..5 %}
-                      {% if i <= r %}
-                        <span class="dir-star dir-star--full">★</span>
-                      {% else %}
-                        <span class="dir-star">☆</span>
-                      {% endif %}
-                    {% endfor %}
-                  </span>
-                </div>
-
-                <div class="dir-muted small mt-2">
-                  {% set line1 = a.address ?? '' %}
-                  {% set line2 = (a.postalCode ?? '') ~ (a.city ? ' ' ~ a.city : '') %}
-                  {% if line1 %}{{ line1 }}{% endif %}
-                  {% if line2 %}{% if line1 %} — {% endif %}{{ line2 }}{% endif %}
-                </div>
-
-                {% if a.description %}
-                  <div class="small mt-2">{{ a.description }}</div>
-                {% endif %}
-              </div>
-
-              <div class="text-end">
-                <div class="dir-actions">
-                  {% if a.email %}
-                    <a class="btn btn-sm btn-outline-secondary" href="mailto:{{ a.email }}">Email</a>
-                  {% endif %}
-                  {% if a.phone %}
-                    <a class="btn btn-sm btn-outline-secondary" href="tel:{{ a.phone|replace({' ':'','-':'','.' : ''}) }}">Appeler</a>
-                  {% endif %}
-                  {# Le bouton "Site web" est retiré : le lien est désormais près du titre #}
-                </div>
-
-                <div class="mt-2 d-flex justify-content-end gap-2">
-                  {% if canEdit %}
-                    <a class="btn btn-sm btn-outline-secondary" href="{{ path('annuaire_edit', { id: a.id }) }}">Modifier</a>
-                  {% endif %}
-                  {% if canDelete %}
-                    <form method="post"
-                          action="{{ path('annuaire_delete', { id: a.id }) }}"
-                          onsubmit="return confirm('Supprimer définitivement cette adresse ?');"
-                          class="d-inline">
-                      <input type="hidden" name="_token" value="{{ csrf_token('annuaire_delete_' ~ a.id) }}">
-                      <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
-                    </form>
-                  {% endif %}
-                </div>
-              </div>
-            </div>
+          <div class="dir-actions">
+            {% if a.email %}
+              <a class="btn btn-sm btn-outline-secondary btn-skinny" href="mailto:{{ a.email }}">Email</a>
+            {% endif %}
+            {% if a.phone %}
+              <a class="btn btn-sm btn-outline-secondary btn-skinny"
+                 href="tel:{{ a.phone|replace({' ':'','-':'','.' : ''}) }}">Appeler</a>
+            {% endif %}
+            {% if canEdit %}
+              <a class="btn btn-sm btn-outline-secondary btn-skinny" href="{{ path('annuaire_edit', { id: a.id }) }}">Modifier</a>
+            {% endif %}
+            {% if canDelete %}
+              <form method="post"
+                    action="{{ path('annuaire_delete', { id: a.id }) }}"
+                    onsubmit="return confirm('Supprimer définitivement cette adresse ?');"
+                    class="d-inline">
+                <input type="hidden" name="_token" value="{{ csrf_token('annuaire_delete_' ~ a.id) }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger btn-skinny">Supprimer</button>
+              </form>
+            {% endif %}
           </div>
         </div>
 

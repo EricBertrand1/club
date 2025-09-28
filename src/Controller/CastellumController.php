@@ -16,7 +16,6 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
-use Symfony\Component\Security\Csrf\CsrfToken;
 
 #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
 class CastellumController extends AbstractController
@@ -78,23 +77,20 @@ class CastellumController extends AbstractController
         return null;
     }
 
-    // Ajoutez ce helper dans la classe CastellumController (section "helpers")
     private function summarizeText(?string $html, int $max = 120): string
     {
         $txt = (string) $html;
-        // retire le HTML et normalise les espaces
         $txt = strip_tags($txt);
         $txt = preg_replace('/\s+/u', ' ', $txt);
         $txt = trim($txt);
         if ($txt === '') return '';
-        // tronque proprement
         if (function_exists('mb_strimwidth')) {
             return mb_strimwidth($txt, 0, $max, '…', 'UTF-8');
         }
         return strlen($txt) > $max ? substr($txt, 0, $max - 2).'…' : $txt;
     }
 
-    /** Safe getter: retourne la donnée fichier du champ s’il existe, sinon null */
+    /** Safe getter */
     private function formFile($form, string $name): ?UploadedFile
     {
         return $form->has($name) ? $form->get($name)->getData() : null;
@@ -146,23 +142,11 @@ class CastellumController extends AbstractController
 
         $items = [];
         foreach ($qs as $q) {
-            // 👉 On privilégie le texte de la question
             $label = $this->summarizeText($q->getQuestionText(), 140);
-
-            // fallback si vide: on utilise le sujet, sinon un libellé par défaut
             if ($label === '') {
                 $label = $q->getSubject() ?: ('Question #'.$q->getId());
             }
-
-            // Optionnel: préfixe pour être explicite dans le menu contextuel
-            // $label = 'Q#'.$q->getId().' — '.$label;
-
-            $items[] = [
-                'id'    => $q->getId(),
-                'label' => $label,
-                // vous pouvez garder d’autres champs si le front en a besoin:
-                // 'subject' => $q->getSubject(),
-            ];
+            $items[] = ['id' => $q->getId(), 'label' => $label];
         }
 
         return new JsonResponse(['ok' => true, 'items' => $items]);
@@ -176,17 +160,35 @@ class CastellumController extends AbstractController
     public function categoryList(string $code, EntityManagerInterface $em): Response
     {
         $labels = [
-            '000'=>'Généralités : informatique','100'=>'Philosophie et psychologie : philosophie, psychologie',
-            '200'=>'Religions : religions','300'=>'Sciences sociales : droit, politique, sujets de société, scolarité',
-            '400'=>'Langues : conjugaison, vocabulaire, étymologie, expressions françaises',
-            '500'=>'Sciences pures : astronomie, biologie, chimie, physique, mathématiques, anatomie',
-            '600'=>'Technologie et sciences appliquées : matériaux, cuisine, boucherie, télécom, jardinage',
-            '700'=>'Arts et loisirs : architecture d’une église, musique, contes, chasse, jeu de la belote',
-            '800'=>'Littérature : /','900'=>'Histoire et géographie : histoire, géographie',
+            '000'=>'Généralités',
+            '100'=>'Philosophie et psychologie',
+            '200'=>'Religions',
+            '300'=>'Sciences sociales',
+            '400'=>'Langues',
+            '500'=>'Sciences pures',
+            '600'=>'Technologie et sciences appliquées',
+            '700'=>'Arts et loisirs',
+            '800'=>'Littérature',
+            '900'=>'Histoire et géographie',
         ];
 
         $subs = $em->getRepository(CastellumSubcategory::class)
             ->findBy(['code' => $code], ['name' => 'ASC']);
+
+        // ✅ Compter le nombre de questions par sous-catégorie affichée
+        $countsBySubId = [];
+        if (!empty($subs)) {
+            $ids = array_map(fn(CastellumSubcategory $s) => $s->getId(), $subs);
+            $rows = $em->getRepository(CastellumQuestion::class)->createQueryBuilder('q')
+                ->select('IDENTITY(q.subcategory) AS sid, COUNT(q.id) AS cnt')
+                ->andWhere('q.subcategory IN (:ids)')->setParameter('ids', $ids)
+                ->groupBy('q.subcategory')
+                ->getQuery()->getScalarResult();
+            foreach ($rows as $r) {
+                $sid = (int) $r['sid'];
+                $countsBySubId[$sid] = (int) $r['cnt'];
+            }
+        }
 
         // Pré-cocher selon les préférences de l’utilisateur
         $prefsSubIds = [];
@@ -199,13 +201,15 @@ class CastellumController extends AbstractController
         }
 
         return $this->render('castellum/category.html.twig', [
-            'code'        => $code,
-            'label'       => $labels[$code] ?? $code,
-            'subs'        => $subs,
-            'prefsSubIds' => $prefsSubIds,
+            'code'           => $code,
+            'label'          => $labels[$code] ?? $code,
+            'subs'           => $subs,
+            'prefsSubIds'    => $prefsSubIds,
             // Bandeau :
-            'catCode'     => $code,
-            'catLabel'    => $labels[$code] ?? $code,
+            'catCode'        => $code,
+            'catLabel'       => $labels[$code] ?? $code,
+            // ✅ nouveaux compteurs pour le template :
+            'countsBySubId'  => $countsBySubId,
         ]);
     }
 
@@ -220,74 +224,45 @@ class CastellumController extends AbstractController
         EntityManagerInterface $em,
         CsrfTokenManagerInterface $csrf
     ): Response {
-        // Démarre explicitement la session en GET pour stabiliser le token CSRF
         if ($request->isMethod('GET') && $request->hasSession() && !$request->getSession()->isStarted()) {
             $request->getSession()->start();
         }
 
-        // --- POST = Lancement du test
         if ($request->isMethod('POST')) {
-            // DEBUG: récupérer ce qui arrive vraiment
             $postedToken = (string) $request->request->get('_token_castellum_start', '');
             if ($postedToken === '') {
                 $postedToken = (string) $request->request->get('_token', '');
             }
             $expectedToken = $csrf->getToken('castellum_start')->getValue();
-            $method        = $request->getMethod();
-            $origin        = (string) $request->headers->get('origin', '');
-            $referer       = (string) $request->headers->get('referer', '');
-            $sessionId     = $request->hasSession() ? $request->getSession()->getId() : '(no session)';
-
             if (!$this->isCsrfTokenValid('castellum_start', $postedToken)) {
-                $this->addFlash(
-                    'warning',
-                    sprintf(
-                        'DEBUG CSRF: POSTED=%s… / EXPECTED=%s…',
-                        $postedToken ? substr($postedToken, 0, 10) : '(vide)',
-                        substr($expectedToken, 0, 10)
-                    )
-                );
-                $this->addFlash(
-                    'info',
-                    sprintf(
-                        'DEBUG REQ: METHOD=%s | ORIGIN=%s | REFERER=%s | SESSION=%s',
-                        $method ?: '(?)',
-                        $origin ?: '(none)',
-                        $referer ?: '(none)',
-                        $sessionId ?: '(none)'
-                    )
-                );
                 $this->addFlash('danger', 'CSRF invalide, merci de réessayer.');
                 return $this->redirectToRoute('castellum_index');
             }
 
-            // Lecture des champs
             $count = (int) $request->request->get('count', 20);
             if (!in_array($count, self::QUESTION_OPTIONS, true)) $count = 20;
 
             $level = (string) $request->request->get('level', 'base');
             if (!in_array($level, self::LEVELS, true)) $level = 'base';
 
-            $cats = $request->request->all('cats'); // ex: ['200','600']
-            $subs = $request->request->all('subs'); // ex: ['200'=>[1,2], '600'=>[9,11]]
+            $cats = $request->request->all('cats');
+            $subs = $request->request->all('subs');
 
-            // Constitution d’un “résumé” de sélection
             $selected = [];
-            foreach ($cats as $code) {
-                if (isset(self::CATEGORY_LABELS[$code])) {
-                    $selected[$code] = ['label' => self::CATEGORY_LABELS[$code], 'subs' => []];
+            foreach ($cats as $c) {
+                if (isset(self::CATEGORY_LABELS[$c])) {
+                    $selected[$c] = ['label' => self::CATEGORY_LABELS[$c], 'subs' => []];
                 }
             }
-            foreach ($subs as $code => $ids) {
-                $list  = $em->getRepository(CastellumSubcategory::class)->findBy(['code' => $code, 'id' => $ids]);
+            foreach ($subs as $c => $ids) {
+                $list  = $em->getRepository(CastellumSubcategory::class)->findBy(['code' => $c, 'id' => $ids]);
                 $names = array_map(fn($s) => $s->getName(), $list);
-                if (!isset($selected[$code])) {
-                    $selected[$code] = ['label' => self::CATEGORY_LABELS[$code] ?? $code, 'subs' => []];
+                if (!isset($selected[$c])) {
+                    $selected[$c] = ['label' => self::CATEGORY_LABELS[$c] ?? $c, 'subs' => []];
                 }
-                if ($names) $selected[$code]['subs'] = $names;
+                if ($names) $selected[$c]['subs'] = $names;
             }
 
-            // Sauvegarde préférences si utilisateur connecté
             if ($this->getUser()) {
                 $allSubIds = [];
                 foreach ($subs as $ids) {
@@ -300,32 +275,34 @@ class CastellumController extends AbstractController
                     $pref = (new \App\Entity\CastellumPreference())->setUser($this->getUser());
                     $em->persist($pref);
                 }
-                $pref->setCategories($cats)
-                    ->setSubcategories($allSubIds)
-                    ->setLevel($level)
-                    ->setCount($count)
-                    ->touch();
+                $pref->setCategories($cats)->setSubcategories($allSubIds)->setLevel($level)->setCount($count)->touch();
                 $em->flush();
             }
 
-            // Mise en session de la config du test
-            $session->set('castellum.config', [
-                'count'    => $count,
-                'level'    => $level,
-                'selected' => $selected,
-            ]);
-
+            $session->set('castellum.config', ['count'=>$count,'level'=>$level,'selected'=>$selected]);
             return $this->redirectToRoute('castellum_test_start');
         }
 
-        // --- GET = affichage écran de config
         $subcatsByCode = [];
-        foreach (array_keys(self::CATEGORY_LABELS) as $code) {
-            $subcatsByCode[$code] = $em->getRepository(CastellumSubcategory::class)
+        foreach (array_keys(self::CATEGORY_LABELS) as $c) {
+            $subcatsByCode[$c] = $em->getRepository(CastellumSubcategory::class)
                 ->createQueryBuilder('s')
-                ->andWhere('s.code = :c')->setParameter('c',$code)
+                ->andWhere('s.code = :c')->setParameter('c',$c)
                 ->orderBy('s.name','ASC')
                 ->getQuery()->getResult();
+        }
+
+        // ✅ compteurs par catégorie (pour l’écran d’accueil)
+        $rows = $em->getRepository(CastellumQuestion::class)->createQueryBuilder('q')
+            ->select('q.categoryCode AS code, COUNT(q.id) AS cnt')
+            ->groupBy('q.categoryCode')
+            ->getQuery()->getScalarResult();
+        $countsByCode = [];
+        foreach ($rows as $r) {
+            $code = $r['code'] ?? null;
+            if ($code !== null && $code !== '') {
+                $countsByCode[$code] = (int)$r['cnt'];
+            }
         }
 
         $prefsCats=[]; $prefsSubIds=[]; $prefsLevel='base'; $prefsCount=20;
@@ -340,14 +317,15 @@ class CastellumController extends AbstractController
         }
 
         return $this->render('castellum/index.html.twig', [
-            'labels'     => self::CATEGORY_LABELS,
-            'options'    => self::QUESTION_OPTIONS,
-            'levels'     => self::LEVELS,
-            'subcats'    => $subcatsByCode,
-            'prefsCats'  => $prefsCats,
-            'prefsSubIds'=> $prefsSubIds,
-            'prefsLevel' => $prefsLevel,
-            'prefsCount' => $prefsCount,
+            'labels'        => self::CATEGORY_LABELS,
+            'options'       => self::QUESTION_OPTIONS,
+            'levels'        => self::LEVELS,
+            'subcats'       => $subcatsByCode,
+            'prefsCats'     => $prefsCats,
+            'prefsSubIds'   => $prefsSubIds,
+            'prefsLevel'    => $prefsLevel,
+            'prefsCount'    => $prefsCount,
+            'countsByCode'  => $countsByCode, // pour la ligne catégorie
         ]);
     }
 
@@ -436,34 +414,24 @@ class CastellumController extends AbstractController
         $pref = $em->getRepository(CastellumPreference::class)->findOneBy(['user'=>$this->getUser()]);
         if(!$pref){ $pref=(new CastellumPreference())->setUser($this->getUser()); $em->persist($pref); }
 
-        // Met à jour count/level systématiquement
         $pref->setCount($count)->setLevel($level);
 
         if ($merge && $catCode !== '') {
-            // Fusion partielle : on remplace uniquement les sous-catégories de catCode
             $existingSubs = $pref->getSubcategories() ?? [];
-
-            // Tous les IDs de sous-cat pour cette catégorie
             $idsInCat = array_map(
                 fn($row)=>(int)$row['id'],
                 $em->getRepository(CastellumSubcategory::class)->createQueryBuilder('s')
                     ->select('s.id')->andWhere('s.code = :c')->setParameter('c',$catCode)
                     ->getQuery()->getScalarResult()
             );
-
-            // On retire ceux de cette catégorie des préférences…
             $filtered = array_values(array_diff($existingSubs, $idsInCat));
-
-            // …puis on ajoute ce que la page nous envoie
             $newInCat = array_values(array_unique(array_map('intval', $subsFlat)));
             $pref->setSubcategories(array_values(array_unique(array_merge($filtered, $newInCat))));
 
-            // Les catégories globales : si fournies on remplace, sinon on laisse comme avant
             if (!empty($cats)) {
                 $pref->setCategories(array_values(array_unique(array_map('strval',$cats))));
             }
         } else {
-            // Mode complet (comme avant) : on remplace tout ce qui est fourni
             if (!empty($cats)) {
                 $pref->setCategories(array_values(array_unique(array_map('strval',$cats))));
             }
@@ -553,7 +521,6 @@ class CastellumController extends AbstractController
             'pos'     => $pos,
             'total'   => $total,
             'result'  => $result,
-            // Bandeau (couleur de la catégorie de la Q en cours) :
             'catCode'  => $q->getCategoryCode(),
             'catLabel' => self::CATEGORY_LABELS[$q->getCategoryCode()] ?? $q->getCategoryCode(),
         ]);
@@ -662,7 +629,7 @@ class CastellumController extends AbstractController
             }
 
             // QCM images 1..9 (safe)
-            $rmMap = $request->request->all('removeQcmImage') ?? []; // ex: ['3'=>'1']
+            $rmMap = $request->request->all('removeQcmImage') ?? [];
             for($i=1;$i<=9;$i++){
                 $f = $this->formFile($form, 'qcmImageFile'.$i);
                 $setter='setQcmImage'.$i; $getter='getQcmImage'.$i;
@@ -697,7 +664,6 @@ class CastellumController extends AbstractController
             'mode'        => 'new',
             'subcategory' => $subcategory,
             'returnTo'    => $returnTo,
-            // Bandeau :
             'catCode'     => $subcategory->getCode(),
             'catLabel'    => self::CATEGORY_LABELS[$subcategory->getCode()] ?? $subcategory->getCode(),
         ]);
@@ -713,7 +679,7 @@ class CastellumController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
 
-            // ----- Image principale (safe) -----
+            // Image principale
             $imgFile  = $this->formFile($form, 'questionImageFile');
             $rmImage  = ($request->request->get('removeImage') === '1');
 
@@ -737,7 +703,7 @@ class CastellumController extends AbstractController
                 $question->setQuestionImage(null);
             }
 
-            // ----- Audio (safe) -----
+            // Audio
             $audFile  = $this->formFile($form, 'questionAudioFile');
             $rmAudio  = ($request->request->get('removeAudio') === '1');
 
@@ -760,9 +726,8 @@ class CastellumController extends AbstractController
                 $question->setQuestionAudio(null);
             }
 
-            // ----- QCM images 1..9 (safe) -----
-            $rmMap = $request->request->all('removeQcmImage') ?? []; // ex: ['3' => '1', '7' => '1']
-
+            // QCM images 1..9
+            $rmMap = $request->request->all('removeQcmImage') ?? [];
             for ($i = 1; $i <= 9; $i++) {
                 $f = $this->formFile($form, 'qcmImageFile'.$i);
                 $getter = 'getQcmImage'.$i;
@@ -784,7 +749,6 @@ class CastellumController extends AbstractController
                         $question->$setter($this->publicQcmPath($new));
                     }
                 } else {
-                    // pas de nouveau fichier => voir si on a cliqué "Retirer"
                     $askedRemove = isset($rmMap[(string)$i]) && $rmMap[(string)$i] === '1';
                     if ($askedRemove && method_exists($question, $getter) && method_exists($question, $setter)) {
                         $old = $question->$getter();
@@ -796,10 +760,7 @@ class CastellumController extends AbstractController
                 }
             }
 
-            // Garde la catégorie cohérente avec la sous-catégorie
             $question->setCategoryCode($question->getSubcategory()->getCode());
-
-            // MAJ updatedAt uniquement à l’enregistrement
             $question->touch();
             $em->flush();
 
@@ -814,7 +775,6 @@ class CastellumController extends AbstractController
             'mode'        => 'edit',
             'subcategory' => $question->getSubcategory(),
             'returnTo'    => $returnTo,
-            // Bandeau :
             'catCode'     => $question->getSubcategory()->getCode(),
             'catLabel'    => self::CATEGORY_LABELS[$question->getSubcategory()->getCode()] ?? $question->getSubcategory()->getCode(),
         ]);
