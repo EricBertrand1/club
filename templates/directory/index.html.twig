@@ -11,7 +11,7 @@
       padding:.55rem .75rem;
       display:flex; align-items:center; gap:.75rem;
     }
-    .dir-main { flex:1 1 auto; min-width:0; }
+    .dir-main { flex:1 1 auto; min-width:0; position: relative; } /* pour la stretched-link */
 
     .dir-line1, .dir-line2 {
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -20,7 +20,6 @@
     .dir-line1 { font-weight:600; }
 
     .dir-title { margin-right:.5rem; }
-    .dir-website { font-size:.9rem; text-decoration:underline; margin-right:.5rem; }
 
     .dir-stars { margin-left:.25rem; letter-spacing:.05em; user-select:none; }
     .dir-star { color:#9ca3af; }            /* creuse */
@@ -136,12 +135,9 @@
 
         <div class="dir-card">
           <div class="dir-main">
-            {# Ligne 1 : Titre + site + étoiles #}
+            {# Ligne 1 : Titre + étoiles #}
             <span class="dir-line1">
               <span class="dir-title">{{ title }}</span>
-              {% if a.website %}
-                <a class="dir-website" href="{{ a.website }}" target="_blank" rel="noopener">site&nbsp;web</a>
-              {% endif %}
               <span class="dir-stars" title="Note">
                 {% set r = a.rating ?? 0 %}
                 {% for i in 1..5 %}
@@ -161,6 +157,9 @@
               {% if addr %}<span class="dir-dash">—</span><span>{{ addr }}</span>{% endif %}
               {% if a.description %}<span class="dir-dash">—</span><span>{{ a.description }}</span>{% endif %}
             </span>
+
+            {# Lien étiré : ouvre la fiche (edit en lecture seule si pas autorisé) #}
+            <a href="{{ path('annuaire_edit', { id: a.id }) }}" class="stretched-link" aria-label="Voir la fiche"></a>
           </div>
 
           <div class="dir-actions">
@@ -170,9 +169,6 @@
             {% if a.phone %}
               <a class="btn btn-sm btn-outline-secondary btn-skinny"
                  href="tel:{{ a.phone|replace({' ':'','-':'','.' : ''}) }}">Appeler</a>
-            {% endif %}
-            {% if canEdit %}
-              <a class="btn btn-sm btn-outline-secondary btn-skinny" href="{{ path('annuaire_edit', { id: a.id }) }}">Modifier</a>
             {% endif %}
             {% if canDelete %}
               <form method="post"

@@ -18,53 +18,29 @@ class DirectoryController extends AbstractController
         $repo = $em->getRepository(DirectoryEntry::class);
 
         // Filtres GET
-        $cat = $request->query->get('cat');      // Catégorie exacte
-        $typ = $request->query->get('type');     // Web/Localisé
-        $q   = $request->query->get('q');        // recherche multi-mots (OR)
-        $min = $request->query->get('min', '');  // note min
+        $cat  = $request->query->get('cat');     // Catégorie exacte
+        $typ  = $request->query->get('type');    // Web/Localisé
+        $q    = $request->query->get('q');       // recherche globale (mots OR)
+        $min  = $request->query->get('min', ''); // note min
 
         $qb = $repo->createQueryBuilder('e');
 
-        if ($cat) {
-            $qb->andWhere('e.category = :cat')->setParameter('cat', $cat);
-        }
-        if ($typ) {
-            $qb->andWhere('e.type = :typ')->setParameter('typ', $typ);
-        }
+        if ($cat) { $qb->andWhere('e.category = :cat')->setParameter('cat', $cat); }
+        if ($typ) { $qb->andWhere('e.type = :typ')->setParameter('typ', $typ); }
 
-        // ----- Recherche multi-mots (OR global) -----
-        // Si l’utilisateur tape "mairie paris", on matche une fiche si
-        // "mairie" OU "paris" apparaissent dans AU MOINS UN des champs ci-dessous.
+        // Recherche globale : découpe en mots, au moins 1 mot doit matcher (OR)
         if ($q) {
-            $words = preg_split('/\s+/', trim((string) $q)) ?: [];
-            $groupOr = [];
+            $words = preg_split('/\s+/', trim($q)) ?: [];
+            $orX = $qb->expr()->orX();
             $i = 0;
-
             foreach ($words as $w) {
                 $w = mb_strtolower($w);
-                if ($w === '') { continue; }
-
-                $param = 'w' . $i++;
-                // Pour CHAQUE mot, on prépare un sous-or sur l’ensemble des colonnes
-                $groupOr[] = sprintf(
-                    '(LOWER(e.designation) LIKE :%1$s
-                       OR LOWER(e.lastName)   LIKE :%1$s
-                       OR LOWER(e.firstName)  LIKE :%1$s
-                       OR LOWER(e.address)    LIKE :%1$s
-                       OR LOWER(e.postalCode) LIKE :%1$s
-                       OR LOWER(e.city)       LIKE :%1$s
-                       OR LOWER(e.email)      LIKE :%1$s
-                       OR LOWER(e.website)    LIKE :%1$s
-                       OR LOWER(e.description) LIKE :%1$s)',
-                    $param
-                );
-                $qb->setParameter($param, '%'.$w.'%');
+                if ($w === '') continue;
+                $p = 'q'.$i++;
+                $orX->add("(LOWER(e.designation) LIKE :$p OR LOWER(e.lastName) LIKE :$p OR LOWER(e.firstName) LIKE :$p OR LOWER(e.city) LIKE :$p OR LOWER(e.email) LIKE :$p OR LOWER(e.website) LIKE :$p OR LOWER(e.description) LIKE :$p)");
+                $qb->setParameter($p, '%'.$w.'%');
             }
-
-            if (!empty($groupOr)) {
-                // On exige : (blocMot1) OR (blocMot2) OR (blocMot3) …
-                $qb->andWhere(implode(' OR ', $groupOr));
-            }
+            if ($i > 0) $qb->andWhere($orX);
         }
 
         if ($min !== '' && is_numeric($min)) {
@@ -94,7 +70,6 @@ class DirectoryController extends AbstractController
             'entries'        => $entries,
             'categories'     => $categories,
             'types'          => ['Web','Localisé'],
-            // plus de 'desc' ici
             'f'              => ['cat' => $cat, 'type' => $typ, 'q' => $q, 'min' => $min],
             'canEditById'    => $canEditById,
             'canDeleteById'  => $canDeleteById,
@@ -104,18 +79,32 @@ class DirectoryController extends AbstractController
     #[Route('/directory/{id}/edit', name: 'annuaire_edit', methods: ['GET','POST'])]
     public function edit(Request $request, DirectoryEntry $entry, EntityManagerInterface $em): Response
     {
-        $form = $this->createForm(DirectoryEntryType::class, $entry);
+        // Droit de modification : admin OU auteur (si propriété disponible)
+        $isOwner = method_exists($entry, 'getCreatedBy') ? ($entry->getCreatedBy() === $this->getUser()) : false;
+        $canEdit = $this->isGranted('ROLE_ADMIN') || $isOwner;
+
+        // En GET : on affiche la fiche. En POST : on sauvegarde seulement si autorisé
+        $form = $this->createForm(DirectoryEntryType::class, $entry, [
+            'disabled' => !$canEdit, // lecture seule si pas autorisé
+        ]);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            $em->flush();
-            $this->addFlash('success', 'Adresse mise à jour.');
-            return $this->redirectToRoute('annuaire_index');
+        if ($form->isSubmitted()) {
+            if (!$canEdit) {
+                $this->addFlash('danger', 'Vous ne pouvez pas modifier cette adresse.');
+                return $this->redirectToRoute('annuaire_edit', ['id' => $entry->getId()]);
+            }
+            if ($form->isValid()) {
+                $em->flush();
+                $this->addFlash('success', 'Adresse mise à jour.');
+                return $this->redirectToRoute('annuaire_index');
+            }
         }
 
         return $this->render('directory/edit.html.twig', [
-            'form'  => $form->createView(),
-            'entry' => $entry,
+            'form'    => $form->createView(),
+            'entry'   => $entry,
+            'canEdit' => $canEdit,
         ]);
     }
 
@@ -129,8 +118,6 @@ class DirectoryController extends AbstractController
         }
 
         $entry = new DirectoryEntry();
-
-        // valeur par défaut uniquement à la création
         if ($entry->getRating() === null) {
             $entry->setRating(0);
         }
